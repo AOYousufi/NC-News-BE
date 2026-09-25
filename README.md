@@ -1,66 +1,51 @@
-# NC News — Backend API
+# NC News - Backend API
 
-A RESTful news API built with **Node.js**, **Express**, and **PostgreSQL**, developed during the Northcoders Full-Stack bootcamp using Test-Driven Development throughout.
+A RESTful news API built with **Node.js**, **Express** and **PostgreSQL** during the Northcoders Full-Stack Software Development bootcamp.
 
-Supports articles, comments, topics, and users — with filtering, sorting, and pagination on key endpoints.
+It supports articles, comments, topics and users, with filtering, sorting and pagination on key endpoints.
 
----
-
-## 🔗 Links
+## Links
 
 - **Live API:** [nc-news-vvdv.onrender.com/api](https://nc-news-vvdv.onrender.com/api)
 - **Frontend:** [nc-news-sultan.netlify.app](https://nc-news-sultan.netlify.app/)
-- **Frontend Repo:** [github.com/Sultan0013/NC-news-FE](https://github.com/Sultan0013/NC-news-FE)
+- **Frontend repo:** [github.com/AOYousufi/NC-news-FE](https://github.com/AOYousufi/NC-news-FE)
 
-> ⚠️ Hosted on Render's free tier — may take 30–60 seconds to wake on first request.
+> The API is hosted on Render's free tier, so the first request may take a short while to wake up.
 
----
-
-## 🛠 Tech Stack
+## Tech stack
 
 | Layer | Technology |
 |---|---|
 | Runtime | Node.js |
 | Framework | Express.js |
 | Database | PostgreSQL |
-| ORM/Query | pg (node-postgres) |
+| Database client | pg (node-postgres) |
 | Testing | Jest + Supertest |
 
----
-
-## 📡 API Endpoints
+## API endpoints
 
 | Method | Endpoint | Description |
 |---|---|---|
 | GET | `/api` | List all available endpoints |
 | GET | `/api/topics` | Get all topics |
-| GET | `/api/articles` | Get all articles (supports `sort_by`, `order`, `topic`, `limit`, `p`) |
-| GET | `/api/articles/:id` | Get article by ID |
+| GET | `/api/articles` | Get articles with sorting, filtering and pagination |
+| GET | `/api/articles/:id` | Get an article by ID |
 | GET | `/api/articles/:id/comments` | Get comments for an article |
 | POST | `/api/articles/:id/comments` | Post a comment |
 | PATCH | `/api/articles/:id` | Update article votes |
 | DELETE | `/api/comments/:id` | Delete a comment |
 | GET | `/api/users` | Get all users |
-| GET | `/api/users/:username` | Get user by username |
+| GET | `/api/users/:username` | Get a user by username |
 
----
+## Local setup
 
-## ⚙️ Local Setup
-
-### 1. Clone the repo
 ```bash
 git clone https://github.com/AOYousufi/NC-News-BE.git
 cd NC-News-BE
-```
-
-### 2. Install dependencies
-```bash
 npm install
 ```
 
-### 3. Create environment files
-
-Create two files at the project root:
+Create the following environment files:
 
 **.env.development**
 ```
@@ -72,32 +57,21 @@ PGDATABASE=nc_news
 PGDATABASE=nc_news_test
 ```
 
-> These files are gitignored — never commit them.
+Then set up the databases and run the tests:
 
-### 4. Set up and seed the database
 ```bash
 npm run setup-dbs
 npm run seed
-```
-
-### 5. Run tests
-```bash
 npm run app-test
 ```
 
----
+## Testing
 
-## 🧪 Testing
-
-All endpoints are covered by integration tests using **Jest** and **Supertest**. Tests run against a separate test database and reseed before each test suite to ensure isolation.
-
----
+The API uses **Jest** and **Supertest** for integration testing. Tests run against a separate test database and reseed before test suites to keep results isolated.
 
 ## Requirements
 
-- Node.js `v18+`
-- PostgreSQL `v14+`
+- Node.js v18+
+- PostgreSQL v14+
 
----
-
-*Built as part of the Northcoders Digital Skills Bootcamp in Software Engineering.*
+Built as part of the Northcoders Full-Stack Software Development bootcamp.
