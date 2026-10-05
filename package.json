@@ -1,29 +1,29 @@
 {
-  "name": "be-nc-news",
+  "name": "nc-news-be",
   "version": "1.0.0",
-  "description": "bc-nc-news",
+  "description": "NC News REST API built with Node.js, Express and PostgreSQL",
   "main": "listen.js",
   "scripts": {
     "setup-dbs": "psql -f ./db/setup.sql",
     "seed": "node ./db/seeds/run-seed.js",
     "test": "jest",
     "prepare": "husky install",
-    "app-test": "jest ./__tests__/app.test.js ",
+    "app-test": "jest ./__tests__/app.test.js",
     "start": "node listen.js",
     "seed-prod": "NODE_ENV=production npm run seed",
-    "dev": "nodemon app.js"
+    "dev": "nodemon listen.js"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/northcoders/be-nc-news.git"
+    "url": "git+https://github.com/AOYousufi/NC-News-BE.git"
   },
   "keywords": [],
-  "author": "",
+  "author": "Ahmad Ozair Yousufi",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/northcoders/be-nc-news/issues"
+    "url": "https://github.com/AOYousufi/NC-News-BE/issues"
   },
-  "homepage": "https://github.com/northcoders/be-nc-news#readme",
+  "homepage": "https://github.com/AOYousufi/NC-News-BE#readme",
   "devDependencies": {
     "jest": "^30.3.0",
     "jest-extended": "^2.0.0",

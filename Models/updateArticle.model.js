@@ -1,12 +1,10 @@
 const db = require("../db/connection");
+const { parsePositiveId, badRequest } = require("../utils/validation");
 
 async function update_Article(articleIdInput, incVotes) {
-  const articleId = Number(articleIdInput);
-  if (!Number.isInteger(articleId) || articleId < 1) {
-    return Promise.reject({ status: 400, msg: "Bad Request" });
-  }
-  if (!Number.isInteger(incVotes)) {
-    return Promise.reject({ status: 400, msg: "Bad Request" });
+  const articleId = parsePositiveId(articleIdInput);
+  if (!Number.isSafeInteger(incVotes)) {
+    return Promise.reject(badRequest());
   }
 
   const { rows } = await db.query(

@@ -1,10 +1,8 @@
 const db = require("../db/connection");
+const { parsePositiveId } = require("../utils/validation");
 
 async function selectCommentsByArticle_ID(articleIdInput) {
-  const articleId = Number(articleIdInput);
-  if (!Number.isInteger(articleId) || articleId < 1) {
-    return Promise.reject({ status: 400, msg: "Bad Request" });
-  }
+  const articleId = parsePositiveId(articleIdInput);
 
   const articleResult = await db.query(
     "SELECT article_id FROM articles WHERE article_id = $1;",

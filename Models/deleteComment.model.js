@@ -1,10 +1,8 @@
 const db = require("../db/connection");
+const { parsePositiveId } = require("../utils/validation");
 
 async function deleteComment(commentIdInput, username) {
-  const commentId = Number(commentIdInput);
-  if (!Number.isInteger(commentId) || commmentId < 1) {
-    return Promise.reject({ status: 400, msg: "Bad Request" });
-  }
+  const commentId = parsePositiveId(commentIdInput);
 
   const { rows } = await db.query(
     "SELECT author FROM comments WHERE comment_id = $1;",

@@ -1,4 +1,5 @@
 const db = require("../db/connection");
+const { badRequest, parsePositiveIntegerQuery } = require("../utils/validation");
 
 const SORT_COLUMNS = {
   author: "articles.author",
@@ -11,13 +12,12 @@ const SORT_COLUMNS = {
   comment_count: "comment_count",
 };
 
-function parsePositiveInteger(value, field, max) {
+function validateFilter(value, field) {
   if (value === undefined) return undefined;
-  const parsed = Number(value);
-  if (!Number.isInteger(parsed) || parsed < 1 || (max && parsed > max)) {
-    return Promise.reject({ status: 400, msg: "Invalid " + field + " value" });
+  if (typeof value !== "string" || value.trim().length === 0 || value.length > 100) {
+    throw badRequest(`Invalid ${field} value`);
   }
-  return parsed;
+  return value;
 }
 
 async function ensureFilterExists(table, column, value) {
@@ -31,31 +31,38 @@ async function ensureFilterExists(table, column, value) {
 }
 
 async function fetchAllArticles(options = {}) {
-  const sortBy = options.sort_by || "created_at";
-  const order = (options.order || "desc").toLowerCase();
+  const sortBy = options.sort_by === undefined ? "created_at" : options.sort_by;
+  const orderInput = options.order === undefined ? "desc" : options.order;
 
-  if (!SORT_COLUMNS[sortBy]) {
+  if (typeof sortBy !== "string" || !SORT_COLUMNS[sortBy]) {
     return Promise.reject({ status: 400, msg: "Invalid sort_by column" });
   }
+  if (typeof orderInput !== "string") {
+    return Promise.reject({ status: 400, msg: "Invalid order value" });
+  }
+
+  const order = orderInput.toLowerCase();
   if (!["asc", "desc"].includes(order)) {
     return Promise.reject({ status: 400, msg: "Invalid order value" });
   }
 
-  const limit = await parsePositiveInteger(options.limit, "limit", 100);
-  const page = await parsePositiveInteger(options.p, "page");
+  const topic = validateFilter(options.topic, "topic");
+  const author = validateFilter(options.author, "author");
+  const limit = parsePositiveIntegerQuery(options.limit, "limit", 100);
+  const page = parsePositiveIntegerQuery(options.p, "page");
 
-  if (options.topic) await ensureFilterExists("topics", "slug", options.topic);
-  if (options.author) await ensureFilterExists("users", "username", options.author);
+  if (topic) await ensureFilterExists("topics", "slug", topic);
+  if (author) await ensureFilterExists("users", "username", author);
 
   const values = [];
   const where = [];
 
-  if (options.topic) {
-    values.push(options.topic);
+  if (topic) {
+    values.push(topic);
     where.push("articles.topic = $" + values.length);
   }
-  if (options.author) {
-    values.push(options.author);
+  if (author) {
+    values.push(author);
     where.push("articles.author = $" + values.length);
   }
 

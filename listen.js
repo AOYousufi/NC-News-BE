@@ -6,6 +6,10 @@ const { PORT = 9090 } = process.env;
 
 async function startServer() {
   try {
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET not set");
+    }
+
     await migrate();
     app.listen(PORT, () => console.log(`Listening on ${PORT}...`));
   } catch (error) {

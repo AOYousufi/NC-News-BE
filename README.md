@@ -112,6 +112,8 @@ npm test
 
 Seeded development/test users use `password123` so authentication can be tested locally. This is development seed data only and must not be used as a real production password.
 
+Existing users in a pre-auth production database are migrated as locked legacy accounts rather than being assigned a shared password. New accounts should be created through the registration endpoint.
+
 For Render/production, configure `DATABASE_URL` and `JWT_SECRET` as environment variables.
 
 ## Error handling

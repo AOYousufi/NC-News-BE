@@ -4,7 +4,8 @@ function routeNotFound(req, res) {
 
 function handleCustomErrors(error, req, res, next) {
   if (!error.status) return next(error);
-  res.status(error.status).send({ msg: error.msg || "Request failed" });
+  const msg = error.msg || (error.status === 400 ? "Bad Request" : "Request failed");
+  res.status(error.status).send({ msg });
 }
 
 function handlePsqlErrors(error, req, res, next) {
