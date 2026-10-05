@@ -10,615 +10,399 @@ const {
   userData,
 } = require("../db/data/test-data/index.js");
 const seed = require("../db/seeds/seed.js");
+const { signToken } = require("../utils/auth");
+
+const auth = (username) => ({
+  Authorization: "Bearer " + signToken(username),
+});
 
 beforeEach(() => seed({ topicData, userData, articleData, commentData }));
 afterAll(() => db.end());
 
-describe("GET/api/topics", () => {
-  it("GET 200: should respond with an array of topic objects that each should have slug and description properties", () => {
-    return request(app)
-      .get("/api/topics")
-      .expect(200)
-      .then(({ body }) => {
-        expect(body.topics).toHaveLength(topicData.length);
-        body.topics.forEach((topic, index) => {
-          expect(topic).toHaveProperty("slug");
-          expect(topic).toHaveProperty("description");
-          expect(topic.slug).toBe(topicData[index].slug);
-          expect(topic.description).toBe(topicData[index].description);
-        });
-      });
-  });
-
-  it('GET 404: responds with "Route Not Found" for an unknown endpoint', () => {
-    return request(app)
-      .get("/api/nonexistent")
-      .expect(404)
-      .then(({ body }) => {
-        expect(body.msg).toBe("Route Not Found");
-      });
-  });
-});
-
 describe("GET /api", () => {
-  it("GET 200: should respons with descriptionf or each endpoint adn other specifications", () => {
-    return request(app)
-      .get("/api")
-      .expect(200)
-      .then((response) => {
-        expect(response.body).toEqual(endpointsJson);
-      });
+  test("200: returns endpoint documentation", async () => {
+    const { body } = await request(app).get("/api").expect(200);
+    expect(body).toEqual(endpointsJson);
   });
 });
 
-describe("GET/api/articles/article_id", () => {
-  it("should respond with specific article including comment_count", () => {
-    return request(app)
-      .get("/api/articles/5")
-      .expect(200)
-      .then(({ body }) => {
-        expect(body.article[0]).toEqual(
-          expect.objectContaining({
-            article_id: expect.any(Number) && 5,
-            title: expect.any(String),
-            topic: expect.any(String),
-            author: expect.any(String),
-            body: expect.any(String),
-            created_at: expect.any(String),
-            votes: expect.any(Number),
-            article_img_url: expect.any(String),
-            comment_count: expect.any(Number),
-          })
-        );
-      });
+describe("public read endpoints", () => {
+  test("GET /api/topics returns all topics", async () => {
+    const { body } = await request(app).get("/api/topics").expect(200);
+    expect(body.topics).toHaveLength(topicData.length);
+    body.topics.forEach((topic) => {
+      expect(topic).toEqual(
+        expect.objectContaining({ slug: expect.any(String), description: expect.any(String) })
+      );
+    });
   });
 
-  it("GET 400: should respond with error of bad request when article id is not a number ", () => {
-    return request(app)
-      .get("/api/articles/NAN")
-      .expect(400)
-      .then((response) => {
-        expect(response.text).toBe("Bad Request");
-      });
+  test("GET /api/articles returns articles sorted newest first by default", async () => {
+    const { body } = await request(app).get("/api/articles").expect(200);
+    expect(body.articles.length).toBeGreaterThan(0);
+    expect(body.articles).toBeSortedBy("created_at", { descending: true });
+    body.articles.forEach((article) => {
+      expect(article).toEqual(
+        expect.objectContaining({
+          author: expect.any(String),
+          title: expect.any(String),
+          article_id: expect.any(Number),
+          topic: expect.any(String),
+          created_at: expect.any(String),
+          votes: expect.any(Number),
+          article_img_url: expect.any(String),
+          comment_count: expect.any(Number),
+        })
+      );
+    });
   });
 
-  it("GET 404: should respond with error of not when article id is not in the articles ", () => {
-    return request(app)
-      .get("/api/articles/30")
-      .expect(404)
-      .then((response) => {
-        expect(response.text).toBe("Not Found");
-      });
+  test("GET /api/articles supports sorting", async () => {
+    const { body } = await request(app)
+      .get("/api/articles?sort_by=author&order=asc")
+      .expect(200);
+    expect(body.articles).toBeSortedBy("author", { descending: false });
+  });
+
+  test("GET /api/articles supports topic filtering", async () => {
+    const { body } = await request(app)
+      .get("/api/articles?topic=cats")
+      .expect(200);
+    expect(body.articles.length).toBeGreaterThan(0);
+    body.articles.forEach((article) => expect(article.topic).toBe("cats"));
+  });
+
+  test("GET /api/articles supports author filtering", async () => {
+    const { body } = await request(app)
+      .get("/api/articles?author=rogersop")
+      .expect(200);
+    expect(body.articles.length).toBeGreaterThan(0);
+    body.articles.forEach((article) => expect(article.author).toBe("rogersop"));
+  });
+
+  test("GET /api/articles supports optional pagination without changing the default response", async () => {
+    const { body } = await request(app).get("/api/articles?limit=2&p=2").expect(200);
+    expect(body.articles).toHaveLength(2);
+  });
+
+  test("GET /api/articles rejects invalid sort_by", async () => {
+    const { body } = await request(app)
+      .get("/api/articles?sort_by=body")
+      .expect(400);
+    expect(body.msg).toBe("Invalid sort_by column");
+  });
+
+  test("GET /api/articles rejects invalid order", async () => {
+    const { body } = await request(app)
+      .get("/api/articles?order=sideways")
+      .expect(400);
+    expect(body.msg).toBe("Invalid order value");
+  });
+
+  test("GET /api/articles rejects invalid pagination", async () => {
+    const { body } = await request(app).get("/api/articles?limit=0").expect(400);
+    expect(body.msg).toBe("Invalid limit value");
+  });
+
+  test("GET /api/articles returns 404 for an unknown topic", async () => {
+    const { body } = await request(app)
+      .get("/api/articles?topic=not-a-topic")
+      .expect(404);
+    expect(body.msg).toBe("Not Found");
+  });
+
+  test("GET /api/articles/:article_id returns the existing response shape", async () => {
+    const { body } = await request(app).get("/api/articles/5").expect(200);
+    expect(Array.isArray(body.article)).toBe(true);
+    expect(body.article[0]).toEqual(
+      expect.objectContaining({ article_id: 5, comment_count: expect.any(Number) })
+    );
+  });
+
+  test("GET /api/articles/:article_id rejects a malformed id", async () => {
+    const { body } = await request(app).get("/api/articles/nope").expect(400);
+    expect(body.msg).toBe("Bad Request");
+  });
+
+  test("GET /api/articles/:article_id returns 404 for a missing article", async () => {
+    const { body } = await request(app).get("/api/articles/9999").expect(404);
+    expect(body.msg).toBe("Not Found");
+  });
+
+  test("GET /api/articles/:article_id/comments returns comments newest first", async () => {
+    const { body } = await request(app).get("/api/articles/3/comments").expect(200);
+    expect(body.comments).toHaveLength(2);
+    expect(body.comments[0].comment_id).toBe(11);
+    expect(body.comments[1].comment_id).toBe(10);
+  });
+
+  test("GET /api/articles/:article_id/comments returns [] when the article has no comments", async () => {
+    const { body } = await request(app).get("/api/articles/2/comments").expect(200);
+    expect(body.comments).toEqual([]);
+  });
+
+  test("GET /api/articles/:article_id/comments rejects malformed ids", async () => {
+    const { body } = await request(app)
+      .get("/api/articles/not-an-id/comments")
+      .expect(400);
+    expect(body.msg).toBe("Bad Request");
+  });
+
+  test("GET /api/articles/:article_id/comments returns 404 for a missing article", async () => {
+    const { body } = await request(app)
+      .get("/api/articles/9999/comments")
+      .expect(404);
+    expect(body.msg).toBe("Not Found");
+  });
+
+  test("GET /api/users returns public user data only", async () => {
+    const { body } = await request(app).get("/api/users").expect(200);
+    expect(body.users).toEqual(userData);
+    body.users.forEach((user) => {
+      expect(user).not.toHaveProperty("password_hash");
+    });
+  });
+
+  test("GET /api/users/:username returns a public user", async () => {
+    const { body } = await request(app).get("/api/users/rogersop").expect(200);
+    expect(body).toEqual(userData.find((user) => user.username === "rogersop"));
+    expect(body).not.toHaveProperty("password_hash");
+  });
+
+  test("GET /api/users/:username returns 404 for an unknown user", async () => {
+    const { body } = await request(app).get("/api/users/nobody-here").expect(404);
+    expect(body.msg).toBe("User Not Found");
   });
 });
 
-describe("GET /api/articles", () => {
-  it("should respond with array of articles GET : 200", () => {
-    return request(app)
-      .get("/api/articles")
-      .expect(200)
-      .then(({ body }) => {
-        body.articles.forEach((article) => {
-          expect(article).toEqual(
-            expect.objectContaining({
-              author: expect.any(String),
-              title: expect.any(String),
-              article_id: expect.any(Number),
-              topic: expect.any(String),
-              created_at: expect.any(String),
-              votes: expect.any(Number),
-              article_img_url: expect.any(String),
-              comment_count: expect.any(Number),
-            })
-          );
-        });
-      });
-  });
-  describe("GET /api/articles sorting queries", () => {
-    it("GET 200: responds with the articles where the sort by and order is default ", () => {
-      return request(app)
-        .get("/api/articles")
-        .expect(200)
-        .then(({ body }) => {
-          expect(body.articles).toBeSortedBy("created_at", {
-            descending: true,
-          });
-        });
-    });
+describe("authentication and users", () => {
+  test("POST /api/users/register creates a user, hashes the password and returns a token", async () => {
+    const newUser = {
+      username: "sultan2026",
+      name: "Sultan Dara",
+      avatar_url: "https://example.com/avatar.png",
+      password: "strong-password",
+    };
 
-    it("GET 200: responds with the articles array where they are in sort of author and ascending order", () => {
-      return request(app)
-        .get("/api/articles?sort_by=author&order=asc")
-        .expect(200)
-        .then(({ body }) => {
-          expect(body.articles).toBeSortedBy("author", { descending: false });
-        });
-    });
+    const { body } = await request(app)
+      .post("/api/users/register")
+      .send(newUser)
+      .expect(201);
 
-    it("GET 400: responds with error 400 when the passed sortby value is not included in the sort_by columns array", () => {
-      return request(app)
-        .get("/api/articles?sort_by=body&order=asc")
-        .expect(400)
-        .then((resp) => {
-          expect(resp.text).toBe("Invalid sort_by column");
-        });
+    expect(body.user).toEqual({
+      username: newUser.username,
+      name: newUser.name,
+      avatar_url: newUser.avatar_url,
     });
-
-    it("GET 400: responds with error 400 when the passed order value is not included in the order array", () => {
-      return request(app)
-        .get("/api/articles?sort_by=created_at&order=invalid_order")
-        .expect(400)
-        .then((resp) => {
-          expect(resp.text).toBe("Invalid order value");
-        });
-    });
+    expect(body.token).toEqual(expect.any(String));
+    expect(JSON.stringify(body)).not.toContain("password_hash");
   });
 
-  describe("GET/api/articles topic query", () => {
-    it("GET 200: responds with the article with the specific topic ", () => {
-      return request(app)
-        .get("/api/articles?topic=cats")
-        .expect(200)
-        .then(({ body }) => {
-          expect(body.articles[0]).toEqual(
-            expect.objectContaining({
-              author: expect.any(String),
-              title: expect.any(String),
-              article_id: expect.any(Number),
-              topic: expect.any(String) && "cats",
-              created_at: expect.any(String),
-              votes: expect.any(Number),
-              article_img_url: expect.any(String),
-              comment_count: expect.any(Number),
-            })
-          );
-        });
-    });
+  test("POST /api/users/signup remains available as the compatibility registration route", async () => {
+    const { body } = await request(app)
+      .post("/api/users/signup")
+      .send({
+        username: "legacy_signup",
+        name: "Legacy Signup",
+        password: "password123",
+      })
+      .expect(201);
+    expect(body.user.username).toBe("legacy_signup");
+    expect(body.token).toEqual(expect.any(String));
+  });
 
-    it("GET 200: responds with the articles with the specific topic  sorted and ordered", () => {
-      return request(app)
-        .get("/api/articles?sort_by=title&order=asc&topic=mitch")
-        .expect(200)
-        .then(({ body }) => {
-          expect(body.articles).toBeSortedBy("title", { descending: false });
-          body.articles.forEach((article) => {
-            expect(article).toEqual(
-              expect.objectContaining({
-                author: expect.any(String),
-                title: expect.any(String),
-                article_id: expect.any(Number),
-                topic: expect.any(String) && "mitch",
-                created_at: expect.any(String),
-                votes: expect.any(Number),
-                article_img_url: expect.any(String),
-                comment_count: expect.any(Number),
-              })
-            );
-          });
-        });
-    });
+  test("registration validates required fields", async () => {
+    const { body } = await request(app)
+      .post("/api/users/register")
+      .send({ username: "ab", name: "A", password: "short" })
+      .expect(400);
+    expect(body.msg).toBe("Bad Request");
+  });
 
-    it("GET 400: responds with error 400 when the passed topic is not in the article", () => {
-      return request(app)
-        .get("/api/articles?topic=123")
-        .expect(404)
-        .then((resp) => {
-          expect(resp.text).toBe("Not Found");
-        });
-    });
+  test("registration rejects duplicate usernames", async () => {
+    const { body } = await request(app)
+      .post("/api/users/register")
+      .send({ username: "rogersop", name: "Duplicate", password: "password123" })
+      .expect(409);
+    expect(body.msg).toBe("Username already exists");
+  });
+
+  test("POST /api/users/login authenticates seeded users", async () => {
+    const { body } = await request(app)
+      .post("/api/users/login")
+      .send({ username: "rogersop", password: "password123" })
+      .expect(200);
+    expect(body.user.username).toBe("rogersop");
+    expect(body.token).toEqual(expect.any(String));
+    expect(JSON.stringify(body)).not.toContain("password_hash");
+  });
+
+  test("login does not reveal whether username or password was wrong", async () => {
+    const wrongPassword = await request(app)
+      .post("/api/users/login")
+      .send({ username: "rogersop", password: "wrong-password" })
+      .expect(401);
+    const unknownUser = await request(app)
+      .post("/api/users/login")
+      .send({ username: "unknown", password: "password123" })
+      .expect(401);
+    expect(wrongPassword.body.msg).toBe("Invalid username or password");
+    expect(unknownUser.body.msg).toBe("Invalid username or password");
+  });
+
+  test("GET /api/users/me requires authentication", async () => {
+    const { body } = await request(app).get("/api/users/me").expect(401);
+    expect(body.msg).toBe("Authentication required");
+  });
+
+  test("GET /api/users/me rejects an invalid token", async () => {
+    const { body } = await request(app)
+      .get("/api/users/me")
+      .set("Authorization", "Bearer definitely-not-valid")
+      .expect(401);
+    expect(body.msg).toBe("Invalid or expired token");
+  });
+
+  test("GET /api/users/me returns the authenticated public profile", async () => {
+    const { body } = await request(app)
+      .get("/api/users/me")
+      .set(auth("rogersop"))
+      .expect(200);
+    expect(body.user).toEqual(userData.find((user) => user.username === "rogersop"));
+  });
+
+  test("PATCH /api/users/me updates only the authenticated profile", async () => {
+    const { body } = await request(app)
+      .patch("/api/users/me")
+      .set(auth("rogersop"))
+      .send({ name: "Paul Updated" })
+      .expect(200);
+    expect(body.user).toEqual(
+      expect.objectContaining({ username: "rogersop", name: "Paul Updated" })
+    );
   });
 });
 
-describe("GET/api/:article_id/comments", () => {
-  it("GET 200: should respond with an array of comments ", () => {
-    return request(app)
-      .get("/api/articles/3/comments")
-      .expect(200)
-      .then(({ body }) => {
-        expect(body.comments).toEqual([
-          {
-            comment_id: 11,
-            body: "Ambidextrous marsupial",
-            article_id: 3,
-            author: "icellusedkars",
-            votes: 0,
-            created_at: "2020-09-19T23:10:00.000Z",
-          },
-          {
-            comment_id: 10,
-            body: "git push origin master",
-            article_id: 3,
-            author: "icellusedkars",
-            votes: 0,
-            created_at: "2020-06-20T07:24:00.000Z",
-          },
-        ]);
-      });
-  });
-
-  it("GET 200:should check for the each key and their values  ", () => {
-    return request(app)
-      .get("/api/articles/1/comments")
-      .expect(200)
-      .then(({ body }) => {
-        body.comments.forEach((comment) => {
-          expect(comment).toEqual(
-            expect.objectContaining({
-              comment_id: expect.any(Number),
-              body: expect.any(String),
-              article_id: expect.any(Number) && 1,
-              author: expect.any(String),
-              votes: expect.any(Number),
-              created_at: expect.any(String),
-            })
-          );
-        });
-      });
-  });
-
-  /*need to include a test for an article which has no associated comments (find one in your db)
-In this case we would expect 200 returns an empty array
-Please note: Once you add this test and get it to pass, your 404 test will then no longer pass and will require additional logic to get it to go green */
-
-  it("GET 200: should respond with an empty array for an article which exists with no comments", () => {
-    return request(app)
-      .get("/api/articles/2/comments")
-      .expect(200)
-      .then(({ body }) => {
-        expect(body.comments).toEqual([]);
-      });
-  });
-
-  it("GET 400: should return error of 400 with msg of bad request when passong a non-exostent ID", () => {
-    return request(app)
-      .get("/api/articles/non-existent/comments")
-      .expect(400)
-      .then(({ text }) => {
-        expect(text).toBe("bad request");
-      });
-  });
-
-  it("GET 404 :should return error of 404 with msg of Not found when theirs no comments for that specific_id or there is no article by that Id", () => {
-    return request(app)
-      .get("/api/articles/20/comments")
-      .expect(404)
-      .then(({ text }) => {
-        expect(text).toBe("Not Found");
-      });
-  });
-});
-
-describe("POST /api/articles/:article_id/comments", () => {
-  it("POST 201: should respond with the new comment", () => {
-    const newComment = {
-      username: "rogersop",
-      body: "This is a test comment",
-      testProperty: "test-value",
-    };
-
-    return request(app)
+describe("protected write endpoints", () => {
+  test("guest users cannot post comments", async () => {
+    const { body } = await request(app)
       .post("/api/articles/1/comments")
-      .send(newComment)
-      .expect(201)
-      .then(({ body }) => {
-        expect(body.Comment).toEqual(
-          expect.objectContaining({
-            comment_id: expect.any(Number),
-            body: expect.any(String) && "This is a test comment",
-            article_id: expect.any(Number) && 1,
-            author: expect.any(String) && "rogersop",
-            votes: expect.any(Number),
-            created_at: expect.any(String),
-          })
-        );
-      });
+      .send({ body: "Guest comment" })
+      .expect(401);
+    expect(body.msg).toBe("Authentication required");
   });
 
-  it("POST 201: should ignore any additional property and return the new comment  ", () => {
-    const newComment = {
-      username: "rogersop",
-      body: "This is a test comment",
-    };
-
-    return request(app)
+  test("authenticated users can post comments and the token decides authorship", async () => {
+    const { body } = await request(app)
       .post("/api/articles/1/comments")
-      .send(newComment)
-      .expect(201)
-      .then(({ body }) => {
-        expect(body.Comment).toEqual(
-          expect.objectContaining({
-            comment_id: expect.any(Number),
-            body: expect.any(String),
-            article_id: expect.any(Number),
-            author: expect.any(String),
-            votes: expect.any(Number),
-            created_at: expect.any(String),
-          })
-        );
-      });
+      .set(auth("rogersop"))
+      .send({ username: "butter_bridge", body: "Authenticated comment" })
+      .expect(201);
+    expect(body.Comment).toEqual(
+      expect.objectContaining({
+        body: "Authenticated comment",
+        article_id: 1,
+        author: "rogersop",
+      })
+    );
   });
 
-  it('POST 400 "Not-and-id": should respond with an erroe status of 400 and message of bad request for string of "not-and-ud"', () => {
-    const newComment = {
-      username: "rogersop",
-      body: "This is a test comment",
-    };
-
-    return request(app)
-      .post("/api/articles/not-and-id/comments")
-      .send(newComment)
-      .expect(400)
-      .then(({ text }) => {
-        expect(text).toBe("Bad Request");
-      });
-  });
-
-  it('POST 404 "not-existent-id": should respond with error message of 404 and message of Not Found when there is no article with the speceifc ID ', () => {
-    const newComment = {
-      username: "rogersop",
-      body: "This is a test comment",
-    };
-
-    return request(app)
-      .post("/api/articles/100/comments")
-      .send(newComment)
-      .expect(404)
-      .then(({ text }) => {
-        expect(text).toBe("Not Found");
-      });
-  });
-
-  it("POST 404: should return with error message of 404 and message of UserName not found when the passed username does not exist  ", () => {
-    const newComment = {
-      username: "non-exist username",
-      body: "This is a test comment",
-    };
-
-    return request(app)
+  test("posting a comment validates the body", async () => {
+    const { body } = await request(app)
       .post("/api/articles/1/comments")
-      .send(newComment)
-      .expect(404)
-      .then(({ text }) => {
-        expect(text).toBe("Not Found");
-      });
-  });
-  it("POST 400:should respond with error of 400 and message of bad request when the username or body key os not string ", () => {
-    const newComment = {
-      username: 1,
-      body: [],
-    };
-
-    return request(app)
-      .post("/api/articles/1/comments")
-      .send(newComment)
-      .expect(400)
-      .then(({ text }) => {
-        expect(text).toBe("Bad Request");
-      });
+      .set(auth("rogersop"))
+      .send({ body: "   " })
+      .expect(400);
+    expect(body.msg).toBe("Bad Request");
   });
 
-  it("POST 400:should respond with error of 400 and message of bad request when the newcomment does not contain the username or body key ", () => {
-    const newComment = {
-      testProperty: "test-value",
-    };
-
-    return request(app)
-      .post("/api/articles/1/comments")
-      .send(newComment)
-      .expect(400)
-      .then(({ text }) => {
-        expect(text).toBe("Bad Request");
-      });
+  test("posting a comment validates the article id", async () => {
+    const malformed = await request(app)
+      .post("/api/articles/not-an-id/comments")
+      .set(auth("rogersop"))
+      .send({ body: "Test" })
+      .expect(400);
+    const missing = await request(app)
+      .post("/api/articles/9999/comments")
+      .set(auth("rogersop"))
+      .send({ body: "Test" })
+      .expect(404);
+    expect(malformed.body.msg).toBe("Bad Request");
+    expect(missing.body.msg).toBe("Not Found");
   });
-});
 
-describe("PATCH /api/articles/:article_id", () => {
-  it("PATCH 201 :decrements the article and responds with the updated article with the votes decremented by the given votes key ", () => {
-    const voteInfo = {
-      inc_votes: -10,
-    };
-    return request(app)
+  test("guest users cannot vote", async () => {
+    const { body } = await request(app)
       .patch("/api/articles/1")
-      .send(voteInfo)
-      .expect(201)
-      .then(({ body }) => {
-        expect(body.article).toEqual(
-          expect.objectContaining({
-            article_id: expect.any(Number),
-            title: expect.any(String),
-            topic: expect.any(String),
-            author: expect.any(String),
-            body: expect.any(String),
-            created_at: expect.any(String),
-            votes: expect.any(Number) && 90,
-            article_img_url: expect.any(String),
-          })
-        );
-      });
+      .send({ inc_votes: 1 })
+      .expect(401);
+    expect(body.msg).toBe("Authentication required");
   });
 
-  it("PATCH 201 : increments the article votes  and responds with the updated article votes ", () => {
-    const voteInfo = {
-      inc_votes: 10,
-    };
-    return request(app)
-      .patch("/api/articles/5")
-      .send(voteInfo)
-      .expect(201)
-      .then(({ body }) => {
-        expect(body.article).toEqual(
-          expect.objectContaining({
-            article_id: expect.any(Number),
-            title: expect.any(String),
-            topic: expect.any(String),
-            author: expect.any(String),
-            body: expect.any(String),
-            created_at: expect.any(String),
-            votes: expect.any(Number) && 10,
-            article_img_url: expect.any(String),
-          })
-        );
-      });
+  test("authenticated users can vote", async () => {
+    const { body } = await request(app)
+      .patch("/api/articles/1")
+      .set(auth("rogersop"))
+      .send({ inc_votes: -10 })
+      .expect(200);
+    expect(body.article.votes).toBe(90);
   });
 
-  it("PATCH 201 : increments the article votes  and responds with the updated article votes and ignores any extra property of voteInfo", () => {
-    const voteInfo = {
-      inc_votes: 10,
-      extraProperty: "test-value",
-    };
-    return request(app)
-      .patch("/api/articles/5")
-      .send(voteInfo)
-      .expect(201)
-      .then(({ body }) => {
-        expect(body.article).toEqual(
-          expect.objectContaining({
-            article_id: expect.any(Number),
-            title: expect.any(String),
-            topic: expect.any(String),
-            author: expect.any(String),
-            body: expect.any(String),
-            created_at: expect.any(String),
-            votes: expect.any(Number) && 10,
-            article_img_url: expect.any(String),
-          })
-        );
-      });
+  test("voting validates inc_votes", async () => {
+    const { body } = await request(app)
+      .patch("/api/articles/1")
+      .set(auth("rogersop"))
+      .send({ inc_votes: "10" })
+      .expect(400);
+    expect(body.msg).toBe("Bad Request");
   });
 
-  it("PATCH 400: should respond with an erroe status of 400 and message of bad request for non-exist id", () => {
-    const voteInfo = {
-      inc_votes: -10,
-    };
-    return request(app)
-      .patch("/api/articles/nan")
-      .send(voteInfo)
-      .expect(400)
-      .then(({ text }) => {
-        expect(text).toBe("Bad Request");
-      });
+  test("voting returns 404 for an unknown article", async () => {
+    const { body } = await request(app)
+      .patch("/api/articles/9999")
+      .set(auth("rogersop"))
+      .send({ inc_votes: 1 })
+      .expect(404);
+    expect(body.msg).toBe("Not Found");
   });
 
-  it("PATCH 404: should respond with error message of 404 and message of Not Found when there is no article with the speceifc ID ", () => {
-    const voteInfo = {
-      inc_votes: -10,
-    };
-    return request(app)
-      .patch("/api/articles/100")
-      .send(voteInfo)
-      .expect(404)
-      .then(({ text }) => {
-        expect(text).toBe("Not Found");
-      });
+  test("guest users cannot delete comments", async () => {
+    const { body } = await request(app).delete("/api/comments/2").expect(401);
+    expect(body.msg).toBe("Authentication required");
   });
 
-  it("PATCH 400: should respond with an error status of 400 and message of bad request when value of passed votes is nan", () => {
-    const voteInfo = {
-      inc_votes: "nan",
-    };
-    return request(app)
-      .patch("/api/articles/nan")
-      .send(voteInfo)
-      .expect(400)
-      .then(({ text }) => {
-        expect(text).toBe("Bad Request");
-      });
+  test("a user can delete their own comment", async () => {
+    await request(app)
+      .delete("/api/comments/2")
+      .set(auth("butter_bridge"))
+      .expect(204);
   });
 
-  it("PATCH 400: should respond with an error status of 400 and message of bad request the sended object does not has the property pf inc_votes", () => {
-    const voteInfo = {
-      anythingElse: "test-value",
-    };
-    return request(app)
-      .patch("/api/articles/nan")
-      .send(voteInfo)
-      .expect(400)
-      .then(({ text }) => {
-        expect(text).toBe("Bad Request");
-      });
+  test("a user cannot delete somebody else's comment", async () => {
+    const { body } = await request(app)
+      .delete("/api/comments/2")
+      .set(auth("rogersop"))
+      .expect(403);
+    expect(body.msg).toBe("Forbidden");
+  });
+
+  test("deleting validates comment ids", async () => {
+    const malformed = await request(app)
+      .delete("/api/comments/nope")
+      .set(auth("butter_bridge"))
+      .expect(400);
+    const missing = await request(app)
+      .delete("/api/comments/9999")
+      .set(auth("butter_bridge"))
+      .expect(404);
+    expect(malformed.body.msg).toBe("Bad Request");
+    expect(missing.body.msg).toBe("Not Found");
   });
 });
 
-describe("DELETE /api/comments/:comment_id", () => {
-  it("DELETE 204 : No content - drops the specifc comment specifed by comment-id", () => {
-    return request(app).delete("/api/comments/2").expect(204);
-  });
-
-  it("DELETE 400 :bad request - responds with error for invalid ids", () => {
-    return request(app)
-      .delete("/api/comments/nan")
-      .expect(400)
-      .then((resp) => {
-        expect(resp.text).toBe("Bad Request");
-      });
-  });
-
-  it("DELETE 404 :Not Found - responds with error for non-esxistent_id", () => {
-    return request(app)
-      .delete("/api/comments/100")
-      .expect(404)
-      .then((resp) => {
-        expect(resp.text).toBe("Not Found");
-      });
-  });
-});
-
-describe("Get /api/users", () => {
-  it("GET 200 : responds with an array of users", () => {
-    return request(app)
-      .get("/api/users")
-      .expect(200)
-      .then(({ body }) => {
-        expect(body.users).toEqual(userData);
-        body.users.forEach((user) => {
-          expect(user).toEqual(
-            expect.objectContaining({
-              username: expect.any(String),
-              name: expect.any(String),
-              avatar_url: expect.any(String),
-            })
-          );
-        });
-      });
-  });
-
-  describe("/api/users/login", () => {
-    it("GET 200 :should respond with an object of username , avatar_url and name", () => {
-      return request(app)
-        .get("/api/users/rogersop")
-        .expect(200)
-        .then(({ body }) => {
-          expect(body).toEqual(
-            expect.objectContaining({
-              username: expect.any(String) && "rogersop",
-              avatar_url: expect.any(String),
-              name: expect.any(String),
-            })
-          );
-        });
-    });
-
-    it("POST 201 : should create a new user ", () => {
-      const newUser = {
-        username: "sultan2023",
-        name: "Sultan Dara",
-        avatar_url:
-          "https://gravatar.com/avatar/884264e01b4357925cac33546a477af6?s=400&d=robohash&r=g",
-      };
-
-      return request(app)
-        .post("/api/users/signup")
-        .send(newUser)
-        .expect(201)
-        .then(({ body }) => {
-          expect(body.user).toEqual(
-            expect.objectContaining({
-              username: expect.any(String),
-              name: expect.any(String),
-              avatar_url: expect.any(String),
-            })
-          );
-        });
-    });
+describe("error handling", () => {
+  test("unknown routes return a consistent 404 body", async () => {
+    const { body } = await request(app).get("/api/does-not-exist").expect(404);
+    expect(body).toEqual({ msg: "Route Not Found" });
   });
 });

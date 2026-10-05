@@ -1,41 +1,31 @@
 const express = require("express");
-const app = express();
 const cors = require("cors");
 const userRouter = require("./routes/users");
 const articleRouter = require("./routes/article");
 const topicRouter = require("./routes/topics");
 const commentRouter = require("./routes/comments");
-const getAllapi = require("./Controllers/getAPI.controller.js");
+const getAllApi = require("./Controllers/getAPI.controller.js");
+const {
+  routeNotFound,
+  handleCustomErrors,
+  handlePsqlErrors,
+  handleServerErrors,
+} = require("./errors");
+
+const app = express();
 
 app.use(cors());
 app.use(express.json());
-app.get("/api", getAllapi);
+
+app.get("/api", getAllApi);
 app.use("/api/users", userRouter);
 app.use("/api/articles", articleRouter);
 app.use("/api/topics", topicRouter);
 app.use("/api/comments", commentRouter);
 
-app.use((err, request, response, next) => {
-  if (err.code === "22P02" || err.code === "23502") {
-    response.status(400).send({ msg: "Bad Request" });
-  } else if (err.code === "23503") {
-    response.status(404).send("Not Found");
-  } else {
-    next(err);
-  }
-});
-app.use((req, res, next) => {
-  res.status(404).send({ msg: "Route Not Found" });
-});
+app.use(routeNotFound);
+app.use(handleCustomErrors);
+app.use(handlePsqlErrors);
+app.use(handleServerErrors);
 
-app.use((error, req, res, next) => {
-  if (error.status) {
-    return res.status(error.status).send(error.msg);
-  }
-  res.status(500).send({ msg: "Internal Server error" });
-});
-
-// app.listen(9000, () => {
-//   console.log("listeingi");
-// });
 module.exports = app;

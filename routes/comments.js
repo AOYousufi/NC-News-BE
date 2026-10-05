@@ -1,7 +1,9 @@
-const express = require('express');
-const router = express.Router();
-const deleteComment = require('../Controllers/deleteComment.controller')
+const express = require("express");
+const authenticateUser = require("../middleware/auth");
+const deleteComment = require("../Controllers/deleteComment.controller");
 
-router.delete('/:comment_id', deleteComment);
+const router = express.Router();
+
+router.delete("/:comment_id", authenticateUser, deleteComment);
 
 module.exports = router;

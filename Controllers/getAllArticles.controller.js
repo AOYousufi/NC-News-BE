@@ -1,16 +1,20 @@
-const {fetchAllArticles} = require("../Models/getAllArticles.model")
-const getAllArticles =(req, resp, next)=>{
-    const { sort_by , order , topic} = req.query;
+const { fetchAllArticles } = require("../Models/getAllArticles.model");
 
-
-   fetchAllArticles(sort_by , order , topic).then((articles)=>{
-    resp.status(200).send({articles})
-   
-}).catch(error=>{
-
-    next(error)
-   })
-    
+async function getAllArticles(req, res, next) {
+  try {
+    const { sort_by, order, topic, author, limit, p } = req.query;
+    const articles = await fetchAllArticles({
+      sort_by,
+      order,
+      topic,
+      author,
+      limit,
+      p,
+    });
+    res.status(200).send({ articles });
+  } catch (error) {
+    next(error);
+  }
 }
 
-module.exports = getAllArticles
+module.exports = getAllArticles;

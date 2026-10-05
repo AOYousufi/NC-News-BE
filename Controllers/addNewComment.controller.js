@@ -1,21 +1,19 @@
 const { addComment } = require("../Models/addComment.model");
-const addNewComment = (req, response, next) => {
-  const { article_id } = req.params;
-  const { username, body } = req.body;
-  if (typeof username != "string" || typeof body != "string") {
-    return next({
-      status: 400,
-      msg: "Bad Request",
-    });
-  }
 
-  addComment(username, body, article_id)
-    .then((comment) => {
-      response.status(201).send({ Comment: comment[0] });
-    })
-    .catch((err) => {
-      next(err);
-    });
-};
+async function addNewComment(req, res, next) {
+  try {
+    const { article_id } = req.params;
+    const { body } = req.body;
+
+    if (typeof body !== "string" || body.trim().length === 0) {
+      return next({ status: 400, msg: "Bad Request" });
+    }
+
+    const comment = await addComment(req.user.username, body.trim(), article_id);
+    res.status(201).send({ Comment: comment });
+  } catch (error) {
+    next(error);
+  }
+}
 
 module.exports = addNewComment;

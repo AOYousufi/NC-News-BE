@@ -9,3 +9,6 @@ exports.updateArticle = require("./updateArticle.controller");
 exports.fetchAllUsers = require("./fetchAllUsers.controller");
 exports.fetchUserByUserName = require("./fetchUserByUserName.controller");
 exports.createNewUser = require("./createNewUser.controller");
+exports.loginUser = require("./loginUser.controller");
+exports.getCurrentUser = require("./getCurrentUser.controller");
+exports.updateCurrentUser = require("./updateCurrentUser.controller");

@@ -1,17 +1,13 @@
-const getArticle = require('../Models/fetchArticleById.model')
-const fetchArticleById = (req , res , next)=>{
-    const {article_id} = req.params
+const getArticle = require("../Models/fetchArticleById.model");
 
-    getArticle(article_id).then(({rows})=>{
-        if(rows.length === 0 ){
-            return res.status(404).send("Not Found")
-        }
-   res.status(200).send( {article : rows})
-    }).catch((err)=>{
-        next(err)
-    })
-
+async function fetchArticleById(req, res, next) {
+  try {
+    const { rows } = await getArticle(req.params.article_id);
+    if (rows.length === 0) return next({ status: 404, msg: "Not Found" });
+    res.status(200).send({ article: rows });
+  } catch (error) {
+    next(error);
+  }
 }
 
-
-module.exports = fetchArticleById
+module.exports = fetchArticleById;

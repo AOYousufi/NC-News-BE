@@ -1,18 +1,12 @@
+const { update_Article } = require("../Models/updateArticle.model");
 
-const {update_Article} = require("../Models/updateArticle.model")
-const updateArticle = (req,res,next)=>{
-  
-    const {inc_votes}= req.body
-   
-        
-
-    const {article_id} = req.params
-update_Article(article_id,inc_votes).then((article)=>{
-  res.status(201).send({article})
-}).catch(err=>{
-    next(err)
-})
-    
+async function updateArticle(req, res, next) {
+  try {
+    const article = await update_Article(req.params.article_id, req.body.inc_votes);
+    res.status(200).send({ article });
+  } catch (error) {
+    next(error);
+  }
 }
 
-module.exports = updateArticle
+module.exports = updateArticle;

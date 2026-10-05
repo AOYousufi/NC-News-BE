@@ -1,11 +1,11 @@
 const db = require("../db/connection");
 
-function fetchUser(username) {
-  return db
-    .query(`SELECT * FROM users WHERE username = $1`, [username])
-    .then(({ rows }) => {
-      return rows[0];
-    });
+async function fetchUser(username) {
+  const { rows } = await db.query(
+    "SELECT username, name, avatar_url FROM users WHERE username = $1;",
+    [username]
+  );
+  return rows[0];
 }
 
 module.exports = fetchUser;

@@ -1,13 +1,12 @@
-const fetchUsers  =require('../Models/fetchUsers.model')
+const fetchUsers = require("../Models/fetchUsers.model");
 
-const fetchAllUsers = (request , response , next)=>{
-
-    fetchUsers().then((users)=>{
-       response.status(200).send({users})
-    }).catch(error=>{
-        next(error)
-    })
-    
+async function fetchAllUsers(req, res, next) {
+  try {
+    const users = await fetchUsers();
+    res.status(200).send({ users });
+  } catch (error) {
+    next(error);
+  }
 }
 
-module.exports = fetchAllUsers
+module.exports = fetchAllUsers;

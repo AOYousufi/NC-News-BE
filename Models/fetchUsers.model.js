@@ -1,10 +1,10 @@
-const db = require('../db/connection')
+const db = require("../db/connection");
 
-function fetchAllUsers (){
-    return db.query(`SELECT * FROM users;`).then(({rows})=>{
-        return rows
-    })
+async function fetchAllUsers() {
+  const { rows } = await db.query(
+    "SELECT username, name, avatar_url FROM users;"
+  );
+  return rows;
 }
 
-
-module.exports = fetchAllUsers
+module.exports = fetchAllUsers;

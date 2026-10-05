@@ -2,15 +2,15 @@
 
 A RESTful news API built with **Node.js**, **Express** and **PostgreSQL** during the Northcoders Full-Stack Software Development bootcamp.
 
-It supports articles, comments, topics and users, with filtering, sorting and pagination on key endpoints.
+The API supports articles, comments, topics and users, with public read access and simple authenticated write access.
 
 ## Links
 
-- **Live API:** [nc-news-vvdv.onrender.com/api](https://nc-news-vvdv.onrender.com/api)
-- **Frontend:** [nc-news-sultan.netlify.app](https://nc-news-sultan.netlify.app/)
-- **Frontend repo:** [github.com/AOYousufi/NC-news-FE](https://github.com/AOYousufi/NC-news-FE)
+- **Live API:** https://nc-news-vvdv.onrender.com/api
+- **Frontend:** https://nc-news-sultan.netlify.app/
+- **Frontend repo:** https://github.com/AOYousufi/NC-news-FE
 
-> The API is hosted on Render's free tier, so the first request may take a short while to wake up.
+> Render's free tier may take a short while to wake up on the first request.
 
 ## Tech stack
 
@@ -20,22 +20,65 @@ It supports articles, comments, topics and users, with filtering, sorting and pa
 | Framework | Express.js |
 | Database | PostgreSQL |
 | Database client | pg (node-postgres) |
+| Password hashing | Node.js crypto / scrypt |
+| Authentication | Signed HS256 bearer tokens |
 | Testing | Jest + Supertest |
 
-## API endpoints
+## Access model
 
-| Method | Endpoint | Description |
+Guests are read-only. Public endpoints include articles, article comments, topics and public user profiles.
+
+Registered users can log in and use protected write endpoints. Send the token returned by registration/login as:
+
+```text
+Authorization: Bearer <token>
+```
+
+Protected actions currently include:
+
+- posting comments
+- voting on articles
+- deleting your own comments
+- reading/updating your own profile
+
+A user cannot delete another user's comment. The backend derives comment authorship from the authenticated token rather than trusting a username sent by the client.
+
+## Main endpoints
+
+| Method | Endpoint | Access |
 |---|---|---|
-| GET | `/api` | List all available endpoints |
-| GET | `/api/topics` | Get all topics |
-| GET | `/api/articles` | Get articles with sorting, filtering and pagination |
-| GET | `/api/articles/:id` | Get an article by ID |
-| GET | `/api/articles/:id/comments` | Get comments for an article |
-| POST | `/api/articles/:id/comments` | Post a comment |
-| PATCH | `/api/articles/:id` | Update article votes |
-| DELETE | `/api/comments/:id` | Delete a comment |
-| GET | `/api/users` | Get all users |
-| GET | `/api/users/:username` | Get a user by username |
+| GET | `/api` | Public |
+| GET | `/api/topics` | Public |
+| GET | `/api/articles` | Public |
+| GET | `/api/articles/:article_id` | Public |
+| GET | `/api/articles/:article_id/comments` | Public |
+| POST | `/api/articles/:article_id/comments` | Authenticated |
+| PATCH | `/api/articles/:article_id` | Authenticated |
+| DELETE | `/api/comments/:comment_id` | Owner only |
+| GET | `/api/users` | Public |
+| GET | `/api/users/:username` | Public |
+| POST | `/api/users/register` | Public |
+| POST | `/api/users/signup` | Public compatibility alias |
+| POST | `/api/users/login` | Public |
+| GET | `/api/users/me` | Authenticated |
+| PATCH | `/api/users/me` | Authenticated |
+
+`GET /api/articles` supports `topic`, `author`, `sort_by`, `order`, and optional `limit`/`p` pagination. Pagination is only applied when `limit` or `p` is supplied, so the previous default frontend behaviour is preserved.
+
+## Frontend integration changes
+
+The existing public GET response shapes are preserved. The frontend needs changes only around authenticated functionality:
+
+- registration/signup now requires a password
+- registration and login return a `token`
+- protected requests must include the bearer token
+- posting comments no longer needs to trust/send a username for authorship
+- voting requires login
+- comment deletion requires login and ownership
+- API error responses use `{ "msg": "..." }` consistently
+- successful article vote updates now use HTTP `200`
+
+`FRONTEND_INTEGRATION.md` is intentionally ignored by Git so a detailed local migration checklist can be maintained without publishing it.
 
 ## Local setup
 
@@ -45,29 +88,41 @@ cd NC-News-BE
 npm install
 ```
 
-Create the following environment files:
+Create `.env.development`:
 
-**.env.development**
-```
+```text
 PGDATABASE=nc_news
+JWT_SECRET=replace-with-a-long-random-secret
 ```
 
-**.env.test**
-```
+Create `.env.test`:
+
+```text
 PGDATABASE=nc_news_test
+JWT_SECRET=test-secret-if-you-want-to-override-the-built-in-test-value
 ```
 
-Then set up the databases and run the tests:
+Then run:
 
 ```bash
 npm run setup-dbs
 npm run seed
-npm run app-test
+npm test
 ```
 
-## Testing
+Seeded development/test users use `password123` so authentication can be tested locally. This is development seed data only and must not be used as a real production password.
 
-The API uses **Jest** and **Supertest** for integration testing. Tests run against a separate test database and reseed before test suites to keep results isolated.
+For Render/production, configure `DATABASE_URL` and `JWT_SECRET` as environment variables.
+
+## Error handling
+
+Expected API failures return a consistent JSON body:
+
+```json
+{ "msg": "Bad Request" }
+```
+
+The API handles malformed identifiers, invalid query values, missing resources, authentication failures, ownership failures, PostgreSQL constraint errors, unknown routes and unexpected server errors without exposing stack traces to clients.
 
 ## Requirements
 
