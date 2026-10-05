@@ -13,4 +13,4 @@ async function runSeed() {
   }
 }
 
-doSeed();
+runSeed();
