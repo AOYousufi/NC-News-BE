@@ -26,7 +26,7 @@ async function ensureFilterExists(table, column, value) {
     [value]
   );
   if (rows.length === 0) {
-    return Promise.reject({ status: 404, msg: "Not Found" });
+    throw { status: 404, msg: "Not Found" };
   }
 }
 
@@ -35,15 +35,15 @@ async function fetchAllArticles(options = {}) {
   const orderInput = options.order === undefined ? "desc" : options.order;
 
   if (typeof sortBy !== "string" || !SORT_COLUMNS[sortBy]) {
-    return Promise.reject({ status: 400, msg: "Invalid sort_by column" });
+    throw { status: 400, msg: "Invalid sort_by column" };
   }
   if (typeof orderInput !== "string") {
-    return Promise.reject({ status: 400, msg: "Invalid order value" });
+    throw { status: 400, msg: "Invalid order value" };
   }
 
   const order = orderInput.toLowerCase();
   if (!["asc", "desc"].includes(order)) {
-    return Promise.reject({ status: 400, msg: "Invalid order value" });
+    throw { status: 400, msg: "Invalid order value" };
   }
 
   const topic = validateFilter(options.topic, "topic");
@@ -55,7 +55,7 @@ async function fetchAllArticles(options = {}) {
   if (author) await ensureFilterExists("users", "username", author);
 
   const values = [];
-  const where = [];
+  const where = ["articles.status = 'published'"];
 
   if (topic) {
     values.push(topic);
@@ -67,9 +67,9 @@ async function fetchAllArticles(options = {}) {
   }
 
   let query =
-    "SELECT articles.author, articles.title, articles.article_id, articles.topic, articles.created_at, articles.votes, articles.article_img_url, COUNT(comments.comment_id)::int AS comment_count FROM articles LEFT JOIN comments ON articles.article_id = comments.article_id";
+    "SELECT articles.author, articles.title, articles.article_id, articles.topic, articles.created_at, articles.updated_at, articles.votes, articles.article_img_url, COUNT(comments.comment_id)::int AS comment_count FROM articles LEFT JOIN comments ON articles.article_id = comments.article_id";
 
-  if (where.length) query += " WHERE " + where.join(" AND ");
+  query += " WHERE " + where.join(" AND ");
   query += " GROUP BY articles.article_id";
   query += " ORDER BY " + SORT_COLUMNS[sortBy] + " " + order.toUpperCase();
 

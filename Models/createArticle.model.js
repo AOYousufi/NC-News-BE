@@ -11,6 +11,10 @@ async function createArticle(username, article) {
     placeholders.push("$" + values.length);
   }
 
+  values.push(article.status || "published");
+  columns.push("status");
+  placeholders.push("$" + values.length);
+
   const { rows } = await db.query(
     `INSERT INTO articles (${columns.join(", ")})
      VALUES (${placeholders.join(", ")})

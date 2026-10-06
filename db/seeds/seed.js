@@ -11,7 +11,9 @@ const SEEDED_PASSWORD_HASH =
 
 const seed = ({ topicData, userData, articleData, commentData }) => {
   return db
-    .query("DROP TABLE IF EXISTS article_votes;")
+    .query("DROP TABLE IF EXISTS saved_articles;")
+    .then(() => db.query("DROP TABLE IF EXISTS user_follows;"))
+    .then(() => db.query("DROP TABLE IF EXISTS article_votes;"))
     .then(() => db.query("DROP TABLE IF EXISTS comments;"))
     .then(() => db.query("DROP TABLE IF EXISTS articles;"))
     .then(() => db.query("DROP TABLE IF EXISTS users;"))
@@ -27,17 +29,27 @@ const seed = ({ topicData, userData, articleData, commentData }) => {
     })
     .then(() =>
       db.query(
-        "CREATE TABLE articles (article_id SERIAL PRIMARY KEY, title VARCHAR NOT NULL, topic VARCHAR NOT NULL REFERENCES topics(slug), author VARCHAR NOT NULL REFERENCES users(username), body VARCHAR NOT NULL, created_at TIMESTAMP DEFAULT NOW(), votes INT DEFAULT 0 NOT NULL, article_img_url VARCHAR DEFAULT 'https://images.pexels.com/photos/97050/pexels-photo-97050.jpeg?w=700&h=700');"
+        "CREATE TABLE articles (article_id SERIAL PRIMARY KEY, title VARCHAR NOT NULL, topic VARCHAR NOT NULL REFERENCES topics(slug), author VARCHAR NOT NULL REFERENCES users(username), body VARCHAR NOT NULL, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW(), votes INT DEFAULT 0 NOT NULL, article_img_url VARCHAR DEFAULT 'https://images.pexels.com/photos/97050/pexels-photo-97050.jpeg?w=700&h=700', status VARCHAR(20) DEFAULT 'published' NOT NULL CHECK (status IN ('published', 'draft')));"
       )
     )
     .then(() =>
       db.query(
-        "CREATE TABLE comments (comment_id SERIAL PRIMARY KEY, body VARCHAR NOT NULL, article_id INT REFERENCES articles(article_id) NOT NULL, author VARCHAR REFERENCES users(username) NOT NULL, votes INT DEFAULT 0 NOT NULL, created_at TIMESTAMP DEFAULT NOW());"
+        "CREATE TABLE comments (comment_id SERIAL PRIMARY KEY, body VARCHAR NOT NULL, article_id INT REFERENCES articles(article_id) ON DELETE CASCADE NOT NULL, author VARCHAR REFERENCES users(username) NOT NULL, votes INT DEFAULT 0 NOT NULL, created_at TIMESTAMP DEFAULT NOW(), parent_comment_id INT REFERENCES comments(comment_id) ON DELETE CASCADE);"
       )
     )
     .then(() =>
       db.query(
         "CREATE TABLE article_votes (username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE, article_id INT NOT NULL REFERENCES articles(article_id) ON DELETE CASCADE, vote_value SMALLINT NOT NULL CHECK (vote_value IN (-1, 1)), PRIMARY KEY (username, article_id));"
+      )
+    )
+    .then(() =>
+      db.query(
+        "CREATE TABLE saved_articles (username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE, article_id INT NOT NULL REFERENCES articles(article_id) ON DELETE CASCADE, saved_at TIMESTAMP DEFAULT NOW(), PRIMARY KEY (username, article_id));"
+      )
+    )
+    .then(() =>
+      db.query(
+        "CREATE TABLE user_follows (follower_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE, followed_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE, created_at TIMESTAMP DEFAULT NOW(), PRIMARY KEY (follower_username, followed_username), CHECK (follower_username <> followed_username));"
       )
     )
     .then(() => {

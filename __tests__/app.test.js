@@ -714,6 +714,226 @@ describe("article ownership CRUD", () => {
   });
 });
 
+describe("saved articles, follows, drafts, activity and replies", () => {
+  test("authenticated users can save and unsave a published article idempotently", async () => {
+    await request(app)
+      .post("/api/articles/1/save")
+      .set(auth("rogersop"))
+      .expect(204);
+
+    await request(app)
+      .post("/api/articles/1/save")
+      .set(auth("rogersop"))
+      .expect(204);
+
+    const saved = await request(app)
+      .get("/api/users/me/saved")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(saved.body.articles).toHaveLength(1);
+    expect(saved.body.articles[0].article_id).toBe(1);
+
+    await request(app)
+      .delete("/api/articles/1/save")
+      .set(auth("rogersop"))
+      .expect(204);
+
+    const after = await request(app)
+      .get("/api/users/me/saved")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(after.body.articles).toHaveLength(0);
+  });
+
+  test("users can follow and unfollow another user and the feed only contains followed authors", async () => {
+    await request(app)
+      .post("/api/users/butter_bridge/follow")
+      .set(auth("rogersop"))
+      .expect(204);
+
+    const following = await request(app)
+      .get("/api/users/me/following")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(following.body.users.map((user) => user.username)).toContain("butter_bridge");
+
+    const status = await request(app)
+      .get("/api/users/butter_bridge/follow-status")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(status.body).toEqual({ following: true, is_self: false });
+
+    const feed = await request(app)
+      .get("/api/articles/feed")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(feed.body.articles.length).toBeGreaterThan(0);
+    feed.body.articles.forEach((article) =>
+      expect(article.author).toBe("butter_bridge")
+    );
+
+    await request(app)
+      .delete("/api/users/butter_bridge/follow")
+      .set(auth("rogersop"))
+      .expect(204);
+  });
+
+  test("users cannot follow themselves", async () => {
+    const { body } = await request(app)
+      .post("/api/users/rogersop/follow")
+      .set(auth("rogersop"))
+      .expect(400);
+
+    expect(body.msg).toBe("You cannot follow yourself");
+  });
+
+  test("draft articles are private until published", async () => {
+    const created = await request(app)
+      .post("/api/articles")
+      .set(auth("rogersop"))
+      .send({
+        title: "Private draft",
+        topic: "cats",
+        body: "Not ready yet",
+        status: "draft",
+      })
+      .expect(201);
+
+    const articleId = created.body.article.article_id;
+    expect(created.body.article.status).toBe("draft");
+
+    await request(app).get("/api/articles/" + articleId).expect(404);
+
+    const publicFeed = await request(app).get("/api/articles").expect(200);
+    expect(publicFeed.body.articles.some((article) => article.article_id === articleId)).toBe(false);
+
+    const drafts = await request(app)
+      .get("/api/articles/drafts")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(drafts.body.articles.map((article) => article.article_id)).toContain(articleId);
+
+    const managed = await request(app)
+      .get("/api/articles/" + articleId + "/manage")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(managed.body.article.status).toBe("draft");
+
+    await request(app)
+      .get("/api/articles/" + articleId + "/manage")
+      .set(auth("butter_bridge"))
+      .expect(404);
+
+    await request(app)
+      .patch("/api/articles/" + articleId)
+      .set(auth("rogersop"))
+      .send({ status: "published" })
+      .expect(200);
+
+    await request(app).get("/api/articles/" + articleId).expect(200);
+  });
+
+  test("comments can reply to comments on the same article", async () => {
+    const parent = await request(app)
+      .post("/api/articles/1/comments")
+      .set(auth("rogersop"))
+      .send({ body: "Parent comment" })
+      .expect(201);
+
+    const reply = await request(app)
+      .post("/api/articles/1/comments")
+      .set(auth("butter_bridge"))
+      .send({
+        body: "Nested reply",
+        parent_comment_id: parent.body.Comment.comment_id,
+      })
+      .expect(201);
+
+    expect(reply.body.Comment.parent_comment_id).toBe(parent.body.Comment.comment_id);
+
+    const comments = await request(app)
+      .get("/api/articles/1/comments")
+      .expect(200);
+
+    expect(
+      comments.body.comments.find(
+        (comment) => comment.comment_id === reply.body.Comment.comment_id
+      )
+    ).toEqual(expect.objectContaining({ parent_comment_id: parent.body.Comment.comment_id }));
+  });
+
+  test("reply parent must exist on the same article", async () => {
+    const otherArticleComment = await request(app)
+      .post("/api/articles/1/comments")
+      .set(auth("rogersop"))
+      .send({ body: "Lives elsewhere" })
+      .expect(201);
+
+    const { body } = await request(app)
+      .post("/api/articles/3/comments")
+      .set(auth("butter_bridge"))
+      .send({
+        body: "Wrong article reply",
+        parent_comment_id: otherArticleComment.body.Comment.comment_id,
+      })
+      .expect(400);
+
+    expect(body.msg).toBe("Reply must belong to the same article");
+  });
+
+  test("activity dashboard returns counts and recent activity", async () => {
+    await request(app)
+      .post("/api/articles/1/save")
+      .set(auth("rogersop"))
+      .expect(204);
+
+    await request(app)
+      .post("/api/users/butter_bridge/follow")
+      .set(auth("rogersop"))
+      .expect(204);
+
+    await request(app)
+      .post("/api/articles/1/comments")
+      .set(auth("rogersop"))
+      .send({ body: "Activity comment" })
+      .expect(201);
+
+    const { body } = await request(app)
+      .get("/api/users/me/activity")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(body.stats).toEqual(
+      expect.objectContaining({
+        published_articles: expect.any(Number),
+        drafts: expect.any(Number),
+        comments: expect.any(Number),
+        saved_articles: 1,
+        following: 1,
+      })
+    );
+
+    expect(body.activity.length).toBeGreaterThan(0);
+    expect(body.activity.map((item) => item.type)).toEqual(
+      expect.arrayContaining(["saved", "follow", "comment"])
+    );
+  });
+
+  test("guests cannot use private dashboard/social endpoints", async () => {
+    await request(app).get("/api/users/me/activity").expect(401);
+    await request(app).get("/api/users/me/saved").expect(401);
+    await request(app).get("/api/articles/drafts").expect(401);
+    await request(app).get("/api/articles/feed").expect(401);
+  });
+});
+
 describe("error handling", () => {
   test("unknown routes return a consistent 404 body", async () => {
     const { body } = await request(app).get("/api/does-not-exist").expect(404);

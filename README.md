@@ -36,10 +36,15 @@ Authorization: Bearer <token>
 
 Protected actions currently include:
 
+- saving/bookmarking articles
+- following users and reading a personalised feed
+- managing private article drafts
+- viewing a private activity dashboard
+
 - creating articles
 - editing your own articles
 - deleting your own articles
-- posting comments
+- posting comments and threaded replies
 - voting on other users' articles with one stored vote per user
 - creating new topics
 - deleting your own comments
@@ -56,6 +61,8 @@ Article creation accepts `title`, `topic`, `body` and an optional `article_img_u
 | GET | `/api` | Public |
 | GET | `/api/topics` | Public |
 | GET | `/api/articles` | Public |
+| GET | `/api/articles/feed` | Authenticated |
+| GET | `/api/articles/drafts` | Authenticated |
 | POST | `/api/articles` | Authenticated |
 | GET | `/api/articles/:article_id` | Public |
 | GET | `/api/articles/:article_id/comments` | Public |
@@ -69,6 +76,9 @@ Article creation accepts `title`, `topic`, `body` and an optional `article_img_u
 | POST | `/api/users/signup` | Public compatibility alias |
 | POST | `/api/users/login` | Public |
 | GET | `/api/users/me` | Authenticated |
+| GET | `/api/users/me/activity` | Authenticated |
+| GET | `/api/users/me/saved` | Authenticated |
+| GET | `/api/users/me/following` | Authenticated |
 | PATCH | `/api/users/me` | Authenticated |
 
 `GET /api/articles` supports `topic`, `author`, `sort_by`, `order`, and optional `limit`/`p` pagination. Authenticated users can create topics with `POST /api/topics`. Voting uses `PATCH /api/articles/:article_id` with `{ "inc_votes": 1 }` or `{ "inc_votes": -1 }`; the API stores one vote state per user, supports switching/toggling without duplicate votes, and blocks self-voting. `GET /api/articles/:article_id/vote` restores the signed-in user's current vote state. Pagination is only applied when `limit` or `p` is supplied, so the previous default frontend behaviour is preserved.
@@ -142,3 +152,7 @@ The API handles malformed identifiers, invalid query values, missing resources, 
 - PostgreSQL v14+
 
 Built as part of the Northcoders Full-Stack Software Development bootcamp.
+
+## Product features
+
+The API now supports private draft articles, saved/bookmarked articles, user following with a personalised feed, threaded comment replies via `parent_comment_id`, and a private activity dashboard. Public article queries exclude drafts. Drafts can only be retrieved through authenticated owner endpoints until published.

@@ -40,7 +40,7 @@
     }
   },
   "POST /api/articles": {
-    "description": "Creates an article. Requires Authorization: Bearer <token>. The author is always the authenticated user.",
+    "description": "Creates an article or private draft. Requires authentication. The author is always the authenticated user. Optional status is published or draft.",
     "requestBody": {
       "title": "My article",
       "topic": "coding",
@@ -95,7 +95,7 @@
     }
   },
   "POST /api/articles/:article_id/comments": {
-    "description": "Adds a comment. Requires Authorization: Bearer <token>. The author comes from the authenticated user; a username supplied in the request body is ignored.",
+    "description": "Adds a top-level comment or reply. Requires authentication. Optional parent_comment_id must reference a comment on the same article.",
     "requestBody": {
       "body": "My comment"
     },
@@ -111,7 +111,7 @@
     }
   },
   "PATCH /api/articles/:article_id": {
-    "description": "Updates an article. Requires authentication. With only inc_votes (1 or -1), voting is stored per user: choosing the same vote again removes it, choosing the opposite vote switches sides, and authors cannot vote on their own articles. Otherwise only the article owner can edit title, topic, body and article_img_url. Vote and content updates cannot be mixed.",
+    "description": "Updates an article. Voting uses only inc_votes. Owner content edits may change title, topic, body, article_img_url or status (draft/published). Vote and content fields cannot be mixed.",
     "requestBodyExamples": {
       "vote": {
         "inc_votes": 1
@@ -173,5 +173,38 @@
       "vote": 1,
       "can_vote": true
     }
+  },
+  "GET /api/articles/feed": {
+    "description": "Authenticated personalised feed containing published articles from users the current user follows."
+  },
+  "GET /api/articles/drafts": {
+    "description": "Returns the authenticated user's private draft articles."
+  },
+  "GET /api/articles/:article_id/manage": {
+    "description": "Returns an article, including drafts, only when the authenticated user owns it."
+  },
+  "POST /api/articles/:article_id/save": {
+    "description": "Saves/bookmarks a published article for the authenticated user. Idempotent."
+  },
+  "DELETE /api/articles/:article_id/save": {
+    "description": "Removes a saved/bookmarked article for the authenticated user."
+  },
+  "GET /api/users/me/activity": {
+    "description": "Returns dashboard stats and recent activity for the authenticated user."
+  },
+  "GET /api/users/me/saved": {
+    "description": "Returns the authenticated user's saved published articles."
+  },
+  "GET /api/users/me/following": {
+    "description": "Returns public profiles followed by the authenticated user."
+  },
+  "POST /api/users/:username/follow": {
+    "description": "Follows another user. Requires authentication and cannot target yourself."
+  },
+  "DELETE /api/users/:username/follow": {
+    "description": "Unfollows another user."
+  },
+  "GET /api/users/:username/follow-status": {
+    "description": "Returns whether the authenticated user follows the requested public profile."
   }
 }

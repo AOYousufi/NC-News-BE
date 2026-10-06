@@ -6,6 +6,7 @@ const COLUMN_BY_FIELD = {
   topic: "topic",
   body: "body",
   article_img_url: "article_img_url",
+  status: "status",
 };
 
 async function editArticle(articleIdInput, username, updates) {
@@ -17,27 +18,24 @@ async function editArticle(articleIdInput, username, updates) {
   );
 
   if (ownerResult.rows.length === 0) {
-    return Promise.reject({ status: 404, msg: "Not Found" });
+    throw { status: 404, msg: "Not Found" };
   }
 
   if (ownerResult.rows[0].author !== username) {
-    return Promise.reject({ status: 403, msg: "Forbidden" });
+    throw { status: 403, msg: "Forbidden" };
   }
 
   const entries = Object.entries(updates);
   const values = entries.map(([, value]) => value);
   const setClause = entries
-    .map(
-      ([field], index) =>
-        COLUMN_BY_FIELD[field] + " = $" + (index + 1)
-    )
+    .map(([field], index) => COLUMN_BY_FIELD[field] + " = $" + (index + 1))
     .join(", ");
 
   values.push(articleId);
 
   const { rows } = await db.query(
     `UPDATE articles
-     SET ${setClause}
+     SET ${setClause}, updated_at = NOW()
      WHERE article_id = $${values.length}
      RETURNING *;`,
     values

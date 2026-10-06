@@ -7,7 +7,7 @@ const FIELD_LIMITS = {
   article_img_url: 2048,
 };
 
-const ALLOWED_FIELDS = new Set(Object.keys(FIELD_LIMITS));
+const ALLOWED_FIELDS = new Set([...Object.keys(FIELD_LIMITS), "status"]);
 
 function cleanText(value, field, { allowEmpty = false } = {}) {
   if (typeof value !== "string") throw badRequest();
@@ -46,11 +46,13 @@ function validateArticleFields(input, { partial = false } = {}) {
     if (input.article_img_url === null || input.article_img_url === "") {
       result.article_img_url = null;
     } else {
-      result.article_img_url = cleanText(
-        input.article_img_url,
-        "article_img_url"
-      );
+      result.article_img_url = cleanText(input.article_img_url, "article_img_url");
     }
+  }
+
+  if ("status" in input) {
+    if (!["published", "draft"].includes(input.status)) throw badRequest();
+    result.status = input.status;
   }
 
   return result;
