@@ -339,22 +339,75 @@ describe("protected write endpoints", () => {
     expect(body.msg).toBe("Authentication required");
   });
 
-  test("authenticated users can vote", async () => {
-    const { body } = await request(app)
+  test("authenticated users can agree, switch to disagree and toggle back to neutral", async () => {
+    const agreed = await request(app)
       .patch("/api/articles/1")
       .set(auth("rogersop"))
-      .send({ inc_votes: -10 })
+      .send({ inc_votes: 1 })
       .expect(200);
-    expect(body.article.votes).toBe(90);
+
+    expect(agreed.body.article.votes).toBe(101);
+    expect(agreed.body.article.user_vote).toBe(1);
+
+    const disagreed = await request(app)
+      .patch("/api/articles/1")
+      .set(auth("rogersop"))
+      .send({ inc_votes: -1 })
+      .expect(200);
+
+    expect(disagreed.body.article.votes).toBe(99);
+    expect(disagreed.body.article.user_vote).toBe(-1);
+
+    const neutral = await request(app)
+      .patch("/api/articles/1")
+      .set(auth("rogersop"))
+      .send({ inc_votes: -1 })
+      .expect(200);
+
+    expect(neutral.body.article.votes).toBe(100);
+    expect(neutral.body.article.user_vote).toBe(0);
+  });
+
+  test("voting state is persisted per authenticated user", async () => {
+    await request(app)
+      .patch("/api/articles/1")
+      .set(auth("rogersop"))
+      .send({ inc_votes: 1 })
+      .expect(200);
+
+    const { body } = await request(app)
+      .get("/api/articles/1/vote")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(body).toEqual({ vote: 1, can_vote: true });
+  });
+
+  test("users cannot vote on their own articles", async () => {
+    const { body } = await request(app)
+      .patch("/api/articles/4")
+      .set(auth("rogersop"))
+      .send({ inc_votes: 1 })
+      .expect(403);
+
+    expect(body.msg).toBe("You cannot vote on your own article");
   });
 
   test("voting validates inc_votes", async () => {
-    const { body } = await request(app)
+    const stringVote = await request(app)
       .patch("/api/articles/1")
       .set(auth("rogersop"))
-      .send({ inc_votes: "10" })
+      .send({ inc_votes: "1" })
       .expect(400);
-    expect(body.msg).toBe("Bad Request");
+
+    const oversizedVote = await request(app)
+      .patch("/api/articles/1")
+      .set(auth("rogersop"))
+      .send({ inc_votes: 10 })
+      .expect(400);
+
+    expect(stringVote.body.msg).toBe("Bad Request");
+    expect(oversizedVote.body.msg).toBe("Bad Request");
   });
 
   test("voting returns 404 for an unknown article", async () => {
@@ -397,6 +450,53 @@ describe("protected write endpoints", () => {
       .expect(404);
     expect(malformed.body.msg).toBe("Bad Request");
     expect(missing.body.msg).toBe("Not Found");
+  });
+});
+
+describe("topic creation", () => {
+  test("guest users cannot create topics", async () => {
+    const { body } = await request(app)
+      .post("/api/topics")
+      .send({ slug: "technology", description: "Technology stories" })
+      .expect(401);
+
+    expect(body.msg).toBe("Authentication required");
+  });
+
+  test("authenticated users can create a topic", async () => {
+    const { body } = await request(app)
+      .post("/api/topics")
+      .set(auth("rogersop"))
+      .send({ slug: "Technology", description: "Technology stories and discussion" })
+      .expect(201);
+
+    expect(body.topic).toEqual({
+      slug: "technology",
+      description: "Technology stories and discussion",
+    });
+
+    const topics = await request(app).get("/api/topics").expect(200);
+    expect(topics.body.topics).toContainEqual(body.topic);
+  });
+
+  test("topic creation validates slug and description", async () => {
+    const { body } = await request(app)
+      .post("/api/topics")
+      .set(auth("rogersop"))
+      .send({ slug: "bad topic!", description: "x" })
+      .expect(400);
+
+    expect(body.msg).toBe("Bad Request");
+  });
+
+  test("duplicate topics return conflict", async () => {
+    const { body } = await request(app)
+      .post("/api/topics")
+      .set(auth("rogersop"))
+      .send({ slug: "cats", description: "Another cats topic" })
+      .expect(409);
+
+    expect(body.msg).toBe("Resource already exists");
   });
 });
 

@@ -1,8 +1,11 @@
-const express = require('express');
+const express = require("express");
+const authenticateUser = require("../middleware/auth");
+const fetchAllTopics = require("../Controllers/fetchAllTopics.controller.js");
+const createTopic = require("../Controllers/createTopic.controller");
+
 const router = express.Router();
-const fetchAllTopics = require('../Controllers/fetchAllTopics.controller.js')
 
-
-router.get('/', fetchAllTopics);
+router.get("/", fetchAllTopics);
+router.post("/", authenticateUser, createTopic);
 
 module.exports = router;

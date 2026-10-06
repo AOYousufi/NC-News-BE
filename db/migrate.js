@@ -21,6 +21,15 @@ async function migrate() {
     ALTER TABLE users
     ALTER COLUMN password_hash SET NOT NULL;
   `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS article_votes (
+      username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE,
+      article_id INT NOT NULL REFERENCES articles(article_id) ON DELETE CASCADE,
+      vote_value SMALLINT NOT NULL CHECK (vote_value IN (-1, 1)),
+      PRIMARY KEY (username, article_id)
+    );
+  `);
 }
 
 if (require.main === module) {

@@ -11,7 +11,8 @@ const SEEDED_PASSWORD_HASH =
 
 const seed = ({ topicData, userData, articleData, commentData }) => {
   return db
-    .query("DROP TABLE IF EXISTS comments;")
+    .query("DROP TABLE IF EXISTS article_votes;")
+    .then(() => db.query("DROP TABLE IF EXISTS comments;"))
     .then(() => db.query("DROP TABLE IF EXISTS articles;"))
     .then(() => db.query("DROP TABLE IF EXISTS users;"))
     .then(() => db.query("DROP TABLE IF EXISTS topics;"))
@@ -32,6 +33,11 @@ const seed = ({ topicData, userData, articleData, commentData }) => {
     .then(() =>
       db.query(
         "CREATE TABLE comments (comment_id SERIAL PRIMARY KEY, body VARCHAR NOT NULL, article_id INT REFERENCES articles(article_id) NOT NULL, author VARCHAR REFERENCES users(username) NOT NULL, votes INT DEFAULT 0 NOT NULL, created_at TIMESTAMP DEFAULT NOW());"
+      )
+    )
+    .then(() =>
+      db.query(
+        "CREATE TABLE article_votes (username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE, article_id INT NOT NULL REFERENCES articles(article_id) ON DELETE CASCADE, vote_value SMALLINT NOT NULL CHECK (vote_value IN (-1, 1)), PRIMARY KEY (username, article_id));"
       )
     )
     .then(() => {

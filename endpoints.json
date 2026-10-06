@@ -111,7 +111,7 @@
     }
   },
   "PATCH /api/articles/:article_id": {
-    "description": "Updates an article. Requires authentication. A body containing only inc_votes preserves the existing voting endpoint. Otherwise only the article owner can edit title, topic, body and article_img_url. Vote and content updates cannot be mixed.",
+    "description": "Updates an article. Requires authentication. With only inc_votes (1 or -1), voting is stored per user: choosing the same vote again removes it, choosing the opposite vote switches sides, and authors cannot vote on their own articles. Otherwise only the article owner can edit title, topic, body and article_img_url. Vote and content updates cannot be mixed.",
     "requestBodyExamples": {
       "vote": {
         "inc_votes": 1
@@ -159,5 +159,19 @@
   },
   "DELETE /api/articles/:article_id": {
     "description": "Deletes an article and its comments. Requires authentication and article ownership. Returns 204 on success."
+  },
+  "POST /api/topics": {
+    "description": "Creates a topic. Requires Authorization: Bearer <token>.",
+    "requestBody": {
+      "slug": "technology",
+      "description": "Technology stories and discussion"
+    }
+  },
+  "GET /api/articles/:article_id/vote": {
+    "description": "Returns the authenticated user's current vote state for an article. Requires Authorization: Bearer <token>.",
+    "exampleResponse": {
+      "vote": 1,
+      "can_vote": true
+    }
   }
 }

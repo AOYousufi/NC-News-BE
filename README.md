@@ -40,7 +40,8 @@ Protected actions currently include:
 - editing your own articles
 - deleting your own articles
 - posting comments
-- voting on articles
+- voting on other users' articles with one stored vote per user
+- creating new topics
 - deleting your own comments
 - reading/updating your own profile
 
@@ -70,7 +71,7 @@ Article creation accepts `title`, `topic`, `body` and an optional `article_img_u
 | GET | `/api/users/me` | Authenticated |
 | PATCH | `/api/users/me` | Authenticated |
 
-`GET /api/articles` supports `topic`, `author`, `sort_by`, `order`, and optional `limit`/`p` pagination. Pagination is only applied when `limit` or `p` is supplied, so the previous default frontend behaviour is preserved.
+`GET /api/articles` supports `topic`, `author`, `sort_by`, `order`, and optional `limit`/`p` pagination. Authenticated users can create topics with `POST /api/topics`. Voting uses `PATCH /api/articles/:article_id` with `{ "inc_votes": 1 }` or `{ "inc_votes": -1 }`; the API stores one vote state per user, supports switching/toggling without duplicate votes, and blocks self-voting. `GET /api/articles/:article_id/vote` restores the signed-in user's current vote state. Pagination is only applied when `limit` or `p` is supplied, so the previous default frontend behaviour is preserved.
 
 ## Frontend integration changes
 
