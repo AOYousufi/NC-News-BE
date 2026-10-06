@@ -400,6 +400,220 @@ describe("protected write endpoints", () => {
   });
 });
 
+describe("article ownership CRUD", () => {
+  test("guest users cannot create articles", async () => {
+    const { body } = await request(app)
+      .post("/api/articles")
+      .send({ title: "Guest story", topic: "cats", body: "No token" })
+      .expect(401);
+
+    expect(body.msg).toBe("Authentication required");
+  });
+
+  test("authenticated users can create an article and token identity becomes the author", async () => {
+    const { body } = await request(app)
+      .post("/api/articles")
+      .set(auth("rogersop"))
+      .send({
+        title: "A proper new story",
+        topic: "cats",
+        body: "Created through the authenticated CRUD endpoint.",
+        article_img_url: "https://example.com/new-story.jpg",
+      })
+      .expect(201);
+
+    expect(body.article).toEqual(
+      expect.objectContaining({
+        title: "A proper new story",
+        topic: "cats",
+        author: "rogersop",
+        body: "Created through the authenticated CRUD endpoint.",
+        article_img_url: "https://example.com/new-story.jpg",
+        votes: 0,
+        comment_count: 0,
+        article_id: expect.any(Number),
+        created_at: expect.any(String),
+      })
+    );
+  });
+
+  test("article creation rejects missing fields, unknown topics and client-controlled ownership fields", async () => {
+    const missing = await request(app)
+      .post("/api/articles")
+      .set(auth("rogersop"))
+      .send({ title: "Incomplete" })
+      .expect(400);
+
+    const unknownTopic = await request(app)
+      .post("/api/articles")
+      .set(auth("rogersop"))
+      .send({
+        title: "Unknown topic",
+        topic: "does-not-exist",
+        body: "No such topic",
+      })
+      .expect(404);
+
+    const spoofedAuthor = await request(app)
+      .post("/api/articles")
+      .set(auth("rogersop"))
+      .send({
+        title: "Spoof attempt",
+        topic: "cats",
+        body: "Trying to set the author",
+        author: "butter_bridge",
+      })
+      .expect(400);
+
+    expect(missing.body.msg).toBe("Bad Request");
+    expect(unknownTopic.body.msg).toBe("Not Found");
+    expect(spoofedAuthor.body.msg).toBe("Bad Request");
+  });
+
+  test("an owner can edit article content without changing authorship or votes", async () => {
+    const before = await request(app).get("/api/articles/4").expect(200);
+    const originalVotes = before.body.article[0].votes;
+
+    const { body } = await request(app)
+      .patch("/api/articles/4")
+      .set(auth("rogersop"))
+      .send({
+        title: "Updated by the owner",
+        body: "The owner can update article content.",
+        topic: "cats",
+      })
+      .expect(200);
+
+    expect(body.article).toEqual(
+      expect.objectContaining({
+        article_id: 4,
+        title: "Updated by the owner",
+        body: "The owner can update article content.",
+        topic: "cats",
+        author: "rogersop",
+        votes: originalVotes,
+        comment_count: expect.any(Number),
+      })
+    );
+  });
+
+  test("a user cannot edit somebody else's article", async () => {
+    const { body } = await request(app)
+      .patch("/api/articles/1")
+      .set(auth("rogersop"))
+      .send({ title: "Not mine" })
+      .expect(403);
+
+    expect(body.msg).toBe("Forbidden");
+  });
+
+  test("article editing rejects empty, mixed vote/edit and protected fields", async () => {
+    const empty = await request(app)
+      .patch("/api/articles/4")
+      .set(auth("rogersop"))
+      .send({})
+      .expect(400);
+
+    const mixed = await request(app)
+      .patch("/api/articles/4")
+      .set(auth("rogersop"))
+      .send({ inc_votes: 1, title: "Mixed operation" })
+      .expect(400);
+
+    const protectedField = await request(app)
+      .patch("/api/articles/4")
+      .set(auth("rogersop"))
+      .send({ votes: 999 })
+      .expect(400);
+
+    expect(empty.body.msg).toBe("Bad Request");
+    expect(mixed.body.msg).toBe("Bad Request");
+    expect(protectedField.body.msg).toBe("Bad Request");
+  });
+
+  test("article editing validates ids and missing resources", async () => {
+    const malformed = await request(app)
+      .patch("/api/articles/nope")
+      .set(auth("rogersop"))
+      .send({ title: "Nope" })
+      .expect(400);
+
+    const missing = await request(app)
+      .patch("/api/articles/9999")
+      .set(auth("rogersop"))
+      .send({ title: "Missing" })
+      .expect(404);
+
+    expect(malformed.body.msg).toBe("Bad Request");
+    expect(missing.body.msg).toBe("Not Found");
+  });
+
+  test("guest users cannot delete articles", async () => {
+    const { body } = await request(app)
+      .delete("/api/articles/4")
+      .expect(401);
+
+    expect(body.msg).toBe("Authentication required");
+  });
+
+  test("a user cannot delete somebody else's article", async () => {
+    const { body } = await request(app)
+      .delete("/api/articles/1")
+      .set(auth("rogersop"))
+      .expect(403);
+
+    expect(body.msg).toBe("Forbidden");
+  });
+
+  test("an owner can delete an article and its comments are removed", async () => {
+    const created = await request(app)
+      .post("/api/articles")
+      .set(auth("rogersop"))
+      .send({
+        title: "Temporary owned article",
+        topic: "cats",
+        body: "This will be deleted.",
+      })
+      .expect(201);
+
+    const articleId = created.body.article.article_id;
+
+    await request(app)
+      .post("/api/articles/" + articleId + "/comments")
+      .set(auth("butter_bridge"))
+      .send({ body: "A comment that should be deleted with the article." })
+      .expect(201);
+
+    await request(app)
+      .delete("/api/articles/" + articleId)
+      .set(auth("rogersop"))
+      .expect(204);
+
+    await request(app).get("/api/articles/" + articleId).expect(404);
+
+    const { rows } = await db.query(
+      "SELECT COUNT(*)::int AS count FROM comments WHERE article_id = $1;",
+      [articleId]
+    );
+    expect(rows[0].count).toBe(0);
+  });
+
+  test("article deletion validates ids and missing resources", async () => {
+    const malformed = await request(app)
+      .delete("/api/articles/not-an-id")
+      .set(auth("rogersop"))
+      .expect(400);
+
+    const missing = await request(app)
+      .delete("/api/articles/9999")
+      .set(auth("rogersop"))
+      .expect(404);
+
+    expect(malformed.body.msg).toBe("Bad Request");
+    expect(missing.body.msg).toBe("Not Found");
+  });
+});
+
 describe("error handling", () => {
   test("unknown routes return a consistent 404 body", async () => {
     const { body } = await request(app).get("/api/does-not-exist").expect(404);

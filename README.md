@@ -36,12 +36,17 @@ Authorization: Bearer <token>
 
 Protected actions currently include:
 
+- creating articles
+- editing your own articles
+- deleting your own articles
 - posting comments
 - voting on articles
 - deleting your own comments
 - reading/updating your own profile
 
-A user cannot delete another user's comment. The backend derives comment authorship from the authenticated token rather than trusting a username sent by the client.
+A user cannot delete another user's article or comment. Article and comment authorship are derived from the authenticated token rather than trusting a username sent by the client.
+
+Article creation accepts `title`, `topic`, `body` and an optional `article_img_url`. Existing vote updates remain compatible with `PATCH /api/articles/:article_id` using only `{ "inc_votes": 1 }`. Owner content edits use the same route with one or more of `title`, `topic`, `body` and `article_img_url`; mixing vote and content fields is rejected. Deleting an article also removes its comments in the same transaction.
 
 ## Main endpoints
 
@@ -50,10 +55,12 @@ A user cannot delete another user's comment. The backend derives comment authors
 | GET | `/api` | Public |
 | GET | `/api/topics` | Public |
 | GET | `/api/articles` | Public |
+| POST | `/api/articles` | Authenticated |
 | GET | `/api/articles/:article_id` | Public |
 | GET | `/api/articles/:article_id/comments` | Public |
 | POST | `/api/articles/:article_id/comments` | Authenticated |
-| PATCH | `/api/articles/:article_id` | Authenticated |
+| PATCH | `/api/articles/:article_id` | Authenticated / owner for content edits |
+| DELETE | `/api/articles/:article_id` | Owner only |
 | DELETE | `/api/comments/:comment_id` | Owner only |
 | GET | `/api/users` | Public |
 | GET | `/api/users/:username` | Public |
@@ -74,6 +81,8 @@ The existing public GET response shapes are preserved. The frontend needs change
 - protected requests must include the bearer token
 - posting comments no longer needs to trust/send a username for authorship
 - voting requires login
+- article creation uses the authenticated user as author
+- article content edits and deletion require article ownership
 - comment deletion requires login and ownership
 - API error responses use `{ "msg": "..." }` consistently
 - successful article vote updates now use HTTP `200`

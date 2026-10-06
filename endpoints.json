@@ -16,7 +16,14 @@
   },
   "GET /api/articles": {
     "description": "Serves articles. Public endpoint.",
-    "queries": ["author", "topic", "sort_by", "order", "limit", "p"],
+    "queries": [
+      "author",
+      "topic",
+      "sort_by",
+      "order",
+      "limit",
+      "p"
+    ],
     "exampleResponse": {
       "articles": [
         {
@@ -30,6 +37,26 @@
           "comment_count": 6
         }
       ]
+    }
+  },
+  "POST /api/articles": {
+    "description": "Creates an article. Requires Authorization: Bearer <token>. The author is always the authenticated user.",
+    "requestBody": {
+      "title": "My article",
+      "topic": "coding",
+      "body": "Article body",
+      "article_img_url": "https://example.com/article.jpg"
+    },
+    "exampleResponse": {
+      "article": {
+        "article_id": 14,
+        "title": "My article",
+        "topic": "coding",
+        "author": "rogersop",
+        "body": "Article body",
+        "votes": 0,
+        "comment_count": 0
+      }
     }
   },
   "GET /api/articles/:article_id": {
@@ -84,9 +111,16 @@
     }
   },
   "PATCH /api/articles/:article_id": {
-    "description": "Updates article votes. Requires Authorization: Bearer <token>.",
-    "requestBody": {
-      "inc_votes": 1
+    "description": "Updates an article. Requires authentication. A body containing only inc_votes preserves the existing voting endpoint. Otherwise only the article owner can edit title, topic, body and article_img_url. Vote and content updates cannot be mixed.",
+    "requestBodyExamples": {
+      "vote": {
+        "inc_votes": 1
+      },
+      "edit": {
+        "title": "Updated title",
+        "body": "Updated body",
+        "topic": "coding"
+      }
     }
   },
   "DELETE /api/comments/:comment_id": {
@@ -122,5 +156,8 @@
   },
   "PATCH /api/users/me": {
     "description": "Updates the authenticated user's name and/or avatar_url. Requires Authorization: Bearer <token>."
+  },
+  "DELETE /api/articles/:article_id": {
+    "description": "Deletes an article and its comments. Requires authentication and article ownership. Returns 204 on success."
   }
 }
