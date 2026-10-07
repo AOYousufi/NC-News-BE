@@ -998,6 +998,57 @@ describe("public profile stats", () => {
   });
 });
 
+describe("comment editing", () => {
+  test("comment owners can edit their own comment", async () => {
+    const before = await request(app)
+      .get("/api/articles/1/comments")
+      .expect(200);
+    const target = before.body.comments.find((comment) => comment.comment_id === 2);
+
+    const { body } = await request(app)
+      .patch("/api/comments/2")
+      .set(auth("butter_bridge"))
+      .send({ body: "Edited comment body" })
+      .expect(200);
+
+    expect(body.comment).toEqual(
+      expect.objectContaining({
+        comment_id: 2,
+        body: "Edited comment body",
+        author: "butter_bridge",
+        updated_at: expect.any(String),
+      })
+    );
+    expect(new Date(body.comment.updated_at).getTime()).toBeGreaterThanOrEqual(
+      new Date(target.created_at).getTime()
+    );
+  });
+
+  test("users cannot edit somebody else's comment", async () => {
+    const { body } = await request(app)
+      .patch("/api/comments/2")
+      .set(auth("rogersop"))
+      .send({ body: "Not mine" })
+      .expect(403);
+
+    expect(body.msg).toBe("Forbidden");
+  });
+
+  test("comment editing validates body and payload shape", async () => {
+    await request(app)
+      .patch("/api/comments/2")
+      .set(auth("butter_bridge"))
+      .send({ body: "   " })
+      .expect(400);
+
+    await request(app)
+      .patch("/api/comments/2")
+      .set(auth("butter_bridge"))
+      .send({ body: "Valid", author: "rogersop" })
+      .expect(400);
+  });
+});
+
 describe("public profile comments", () => {
   test("GET /api/users/:username/comments returns public comments with article context", async () => {
     const { body } = await request(app)

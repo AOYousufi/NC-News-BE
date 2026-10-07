@@ -53,7 +53,8 @@ async function migrate() {
 
   await db.query(`
     ALTER TABLE comments
-    ADD COLUMN IF NOT EXISTS parent_comment_id INT;
+    ADD COLUMN IF NOT EXISTS parent_comment_id INT,
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
   `);
 
   await db.query(`

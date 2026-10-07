@@ -36,7 +36,7 @@ const seed = ({ topicData, userData, articleData, commentData }) => {
     )
     .then(() =>
       db.query(
-        "CREATE TABLE comments (comment_id SERIAL PRIMARY KEY, body VARCHAR NOT NULL, article_id INT REFERENCES articles(article_id) ON DELETE CASCADE NOT NULL, author VARCHAR REFERENCES users(username) NOT NULL, votes INT DEFAULT 0 NOT NULL, created_at TIMESTAMP DEFAULT NOW(), parent_comment_id INT REFERENCES comments(comment_id) ON DELETE CASCADE);"
+        "CREATE TABLE comments (comment_id SERIAL PRIMARY KEY, body VARCHAR NOT NULL, article_id INT REFERENCES articles(article_id) ON DELETE CASCADE NOT NULL, author VARCHAR REFERENCES users(username) NOT NULL, votes INT DEFAULT 0 NOT NULL, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW(), parent_comment_id INT REFERENCES comments(comment_id) ON DELETE CASCADE);"
       )
     )
     .then(() =>
