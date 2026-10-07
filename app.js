@@ -8,6 +8,10 @@ const reportRouter = require("./routes/reports");
 const moderationRouter = require("./routes/moderation");
 const getAllApi = require("./Controllers/getAPI.controller.js");
 const {
+  authRateLimiter,
+  writeRateLimiter,
+} = require("./middleware/rateLimit");
+const {
   routeNotFound,
   handleCustomErrors,
   handlePsqlErrors,
@@ -20,6 +24,10 @@ app.use(cors());
 app.use(express.json());
 
 app.get("/api", getAllApi);
+app.use("/api/users/login", authRateLimiter);
+app.use("/api/users/register", authRateLimiter);
+app.use("/api/users/signup", authRateLimiter);
+app.use("/api", writeRateLimiter);
 app.use("/api/users", userRouter);
 app.use("/api/articles", articleRouter);
 app.use("/api/topics", topicRouter);
