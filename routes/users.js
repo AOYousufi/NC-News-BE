@@ -6,6 +6,7 @@ const createNewUser = require("../Controllers/createNewUser.controller");
 const loginUser = require("../Controllers/loginUser.controller");
 const getCurrentUser = require("../Controllers/getCurrentUser.controller");
 const updateCurrentUser = require("../Controllers/updateCurrentUser.controller");
+const { getUserStats } = require("../Controllers/profile.controller");
 const {
   getNotificationCount,
   listNotifications,
@@ -46,6 +47,7 @@ router.patch(
   readNotification
 );
 
+router.get("/:username/stats", getUserStats);
 router.get("/:username/follow-status", authenticateUser, getFollowStatusController);
 router.post("/:username/follow", authenticateUser, followUserController);
 router.delete("/:username/follow", authenticateUser, unfollowUserController);

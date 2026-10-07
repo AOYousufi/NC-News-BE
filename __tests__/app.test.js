@@ -971,6 +971,33 @@ describe("saved articles, follows, drafts, activity and replies", () => {
   });
 });
 
+describe("public profile stats", () => {
+  test("GET /api/users/:username/stats returns public contribution stats", async () => {
+    const { body } = await request(app)
+      .get("/api/users/rogersop/stats")
+      .expect(200);
+
+    expect(body.stats).toEqual(
+      expect.objectContaining({
+        articles: expect.any(Number),
+        comments: expect.any(Number),
+        followers: expect.any(Number),
+        following: expect.any(Number),
+        article_votes_received: expect.any(Number),
+        comment_votes_received: expect.any(Number),
+      })
+    );
+  });
+
+  test("profile stats return 404 for an unknown user", async () => {
+    const { body } = await request(app)
+      .get("/api/users/not-a-real-user/stats")
+      .expect(404);
+
+    expect(body.msg).toBe("User Not Found");
+  });
+});
+
 describe("comment voting", () => {
   test("users can agree, switch and clear a comment vote", async () => {
     const agreed = await request(app)
