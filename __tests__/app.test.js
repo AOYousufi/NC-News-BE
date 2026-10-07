@@ -237,9 +237,11 @@ describe("public read endpoints", () => {
 
   test("GET /api/users returns public user data only", async () => {
     const { body } = await request(app).get("/api/users").expect(200);
-    expect(body.users).toEqual(userData);
+    expect(body.users).toHaveLength(userData.length);
+    expect(body.users).toEqual(expect.arrayContaining(userData));
     body.users.forEach((user) => {
       expect(user).not.toHaveProperty("password_hash");
+      expect(user).not.toHaveProperty("role");
     });
   });
 
@@ -273,6 +275,7 @@ describe("authentication and users", () => {
       username: newUser.username,
       name: newUser.name,
       avatar_url: newUser.avatar_url,
+      role: "user",
     });
     expect(body.token).toEqual(expect.any(String));
     expect(JSON.stringify(body)).not.toContain("password_hash");
@@ -348,7 +351,10 @@ describe("authentication and users", () => {
       .get("/api/users/me")
       .set(auth("rogersop"))
       .expect(200);
-    expect(body.user).toEqual(userData.find((user) => user.username === "rogersop"));
+    expect(body.user).toEqual({
+      ...userData.find((user) => user.username === "rogersop"),
+      role: "moderator",
+    });
   });
 
   test("PATCH /api/users/me updates only the authenticated profile", async () => {
