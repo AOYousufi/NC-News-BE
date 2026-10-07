@@ -59,30 +59,46 @@ async function fetchAllArticles(options = {}) {
   const topic = validateFilter(options.topic, "topic");
   const author = validateFilter(options.author, "author");
   const search = validateSearch(options.search);
-  const limit = parsePositiveIntegerQuery(options.limit, "limit", 100);
-  const page = parsePositiveIntegerQuery(options.p, "page");
+  const requestedLimit = parsePositiveIntegerQuery(options.limit, "limit", 100);
+  const requestedPage = parsePositiveIntegerQuery(options.p, "page");
 
   if (topic) await ensureFilterExists("topics", "slug", topic);
   if (author) await ensureFilterExists("users", "username", author);
 
-  const values = [];
+  const filterValues = [];
   const where = ["articles.status = 'published'"];
 
   if (topic) {
-    values.push(topic);
-    where.push("articles.topic = $" + values.length);
+    filterValues.push(topic);
+    where.push("articles.topic = $" + filterValues.length);
   }
   if (author) {
-    values.push(author);
-    where.push("articles.author = $" + values.length);
+    filterValues.push(author);
+    where.push("articles.author = $" + filterValues.length);
   }
   if (search) {
-    values.push("%" + search + "%");
-    const searchParam = "$" + values.length;
+    filterValues.push("%" + search + "%");
+    const searchParam = "$" + filterValues.length;
     where.push(
       `(articles.title ILIKE ${searchParam} OR articles.body ILIKE ${searchParam} OR articles.author ILIKE ${searchParam})`
     );
   }
+
+  const countResult = await db.query(
+    `SELECT COUNT(*)::int AS total_count
+     FROM articles
+     WHERE ${where.join(" AND ")};`,
+    filterValues
+  );
+
+  const totalCount = countResult.rows[0].total_count;
+  const paginationRequested =
+    requestedLimit !== undefined || requestedPage !== undefined;
+  const limit = paginationRequested ? requestedLimit || 10 : null;
+  const page = paginationRequested ? requestedPage || 1 : 1;
+  const totalPages = limit ? Math.ceil(totalCount / limit) : totalCount ? 1 : 0;
+
+  const values = [...filterValues];
 
   let query =
     "SELECT articles.author, articles.title, articles.article_id, articles.topic, articles.created_at, articles.updated_at, articles.votes, articles.article_img_url, COUNT(comments.comment_id)::int AS comment_count FROM articles LEFT JOIN comments ON articles.article_id = comments.article_id";
@@ -91,18 +107,27 @@ async function fetchAllArticles(options = {}) {
   query += " GROUP BY articles.article_id";
   query += " ORDER BY " + SORT_COLUMNS[sortBy] + " " + order.toUpperCase();
 
-  if (limit !== undefined || page !== undefined) {
-    const effectiveLimit = limit || 10;
-    const effectivePage = page || 1;
-    values.push(effectiveLimit);
+  if (limit) {
+    values.push(limit);
     query += " LIMIT $" + values.length;
-    values.push((effectivePage - 1) * effectiveLimit);
+    values.push((page - 1) * limit);
     query += " OFFSET $" + values.length;
   }
 
   query += ";";
   const { rows } = await db.query(query, values);
-  return rows;
+
+  return {
+    articles: rows,
+    pagination: {
+      total_count: totalCount,
+      page,
+      limit,
+      total_pages: totalPages,
+      has_previous: page > 1,
+      has_next: limit ? page < totalPages : false,
+    },
+  };
 }
 
 module.exports = { fetchAllArticles };

@@ -122,6 +122,33 @@ describe("public read endpoints", () => {
     expect(body.articles).toHaveLength(2);
   });
 
+  test("GET /api/articles returns pagination metadata", async () => {
+    const { body } = await request(app)
+      .get("/api/articles?limit=2&p=2")
+      .expect(200);
+
+    expect(body.pagination).toEqual(
+      expect.objectContaining({
+        total_count: expect.any(Number),
+        page: 2,
+        limit: 2,
+        total_pages: expect.any(Number),
+        has_previous: true,
+        has_next: expect.any(Boolean),
+      })
+    );
+    expect(body.articles).toHaveLength(2);
+  });
+
+  test("GET /api/articles includes non-paginated metadata without truncating defaults", async () => {
+    const { body } = await request(app).get("/api/articles").expect(200);
+
+    expect(body.pagination.limit).toBeNull();
+    expect(body.pagination.page).toBe(1);
+    expect(body.pagination.total_count).toBe(body.articles.length);
+    expect(body.pagination.has_next).toBe(false);
+  });
+
   test("GET /api/articles rejects invalid sort_by", async () => {
     const { body } = await request(app)
       .get("/api/articles?sort_by=body")
