@@ -53,6 +53,18 @@ jobs:
           NODE_ENV: development
           PGDATABASE: nc_news
 
+      - name: Verify migrations
+        run: npm run migrate
+        env:
+          NODE_ENV: development
+          PGDATABASE: nc_news
+
+      - name: Verify migrations are idempotent
+        run: npm run migrate
+        env:
+          NODE_ENV: development
+          PGDATABASE: nc_news
+
       - name: Run test suite
         run: npm test
         env:
