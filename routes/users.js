@@ -7,6 +7,12 @@ const loginUser = require("../Controllers/loginUser.controller");
 const getCurrentUser = require("../Controllers/getCurrentUser.controller");
 const updateCurrentUser = require("../Controllers/updateCurrentUser.controller");
 const {
+  getNotificationCount,
+  listNotifications,
+  readAllNotifications,
+  readNotification,
+} = require("../Controllers/notification.controller");
+const {
   followUserController,
   getActivityController,
   getFollowStatusController,
@@ -27,6 +33,18 @@ router.patch("/me", authenticateUser, updateCurrentUser);
 router.get("/me/activity", authenticateUser, getActivityController);
 router.get("/me/saved", authenticateUser, getSavedArticlesController);
 router.get("/me/following", authenticateUser, getFollowingController);
+router.get("/me/notifications", authenticateUser, listNotifications);
+router.get("/me/notifications/count", authenticateUser, getNotificationCount);
+router.patch(
+  "/me/notifications/read-all",
+  authenticateUser,
+  readAllNotifications
+);
+router.patch(
+  "/me/notifications/:notification_id/read",
+  authenticateUser,
+  readNotification
+);
 
 router.get("/:username/follow-status", authenticateUser, getFollowStatusController);
 router.post("/:username/follow", authenticateUser, followUserController);

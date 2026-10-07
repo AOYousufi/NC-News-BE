@@ -11,7 +11,8 @@ const SEEDED_PASSWORD_HASH =
 
 const seed = ({ topicData, userData, articleData, commentData }) => {
   return db
-    .query("DROP TABLE IF EXISTS saved_articles;")
+    .query("DROP TABLE IF EXISTS notifications;")
+    .then(() => db.query("DROP TABLE IF EXISTS saved_articles;"))
     .then(() => db.query("DROP TABLE IF EXISTS user_follows;"))
     .then(() => db.query("DROP TABLE IF EXISTS article_votes;"))
     .then(() => db.query("DROP TABLE IF EXISTS comments;"))
@@ -50,6 +51,11 @@ const seed = ({ topicData, userData, articleData, commentData }) => {
     .then(() =>
       db.query(
         "CREATE TABLE user_follows (follower_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE, followed_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE, created_at TIMESTAMP DEFAULT NOW(), PRIMARY KEY (follower_username, followed_username), CHECK (follower_username <> followed_username));"
+      )
+    )
+    .then(() =>
+      db.query(
+        "CREATE TABLE notifications (notification_id SERIAL PRIMARY KEY, recipient_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE, actor_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE, type VARCHAR(40) NOT NULL CHECK (type IN ('follow', 'article_comment', 'reply', 'article_agree', 'article_disagree')), article_id INT REFERENCES articles(article_id) ON DELETE CASCADE, comment_id INT REFERENCES comments(comment_id) ON DELETE CASCADE, created_at TIMESTAMP DEFAULT NOW(), read_at TIMESTAMP);"
       )
     )
     .then(() => {

@@ -1,5 +1,6 @@
 const db = require("../db/connection");
 const { parsePositiveId, badRequest } = require("../utils/validation");
+const { createNotification } = require("./notification.model");
 
 async function update_Article(articleIdInput, incVotes, username) {
   const articleId = parsePositiveId(articleIdInput);
@@ -59,6 +60,18 @@ async function update_Article(articleIdInput, incVotes, username) {
        RETURNING *;`,
       [voteDelta, articleId]
     );
+
+    if (previousVote === 0 && nextVote !== 0) {
+      await createNotification(
+        {
+          recipient: articleResult.rows[0].author,
+          actor: username,
+          type: nextVote === 1 ? "article_agree" : "article_disagree",
+          articleId,
+        },
+        client
+      );
+    }
 
     await client.query("COMMIT");
 

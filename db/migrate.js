@@ -100,6 +100,21 @@ async function migrate() {
   `);
 
   await db.query(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      notification_id SERIAL PRIMARY KEY,
+      recipient_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE,
+      actor_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE,
+      type VARCHAR(40) NOT NULL CHECK (
+        type IN ('follow', 'article_comment', 'reply', 'article_agree', 'article_disagree')
+      ),
+      article_id INT REFERENCES articles(article_id) ON DELETE CASCADE,
+      comment_id INT REFERENCES comments(comment_id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT NOW(),
+      read_at TIMESTAMP
+    );
+  `);
+
+  await db.query(`
     CREATE INDEX IF NOT EXISTS idx_articles_status_created_at
       ON articles(status, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_articles_author_status
@@ -110,6 +125,8 @@ async function migrate() {
       ON saved_articles(username, saved_at DESC);
     CREATE INDEX IF NOT EXISTS idx_user_follows_follower
       ON user_follows(follower_username);
+    CREATE INDEX IF NOT EXISTS idx_notifications_recipient_unread
+      ON notifications(recipient_username, read_at, created_at DESC);
   `);
 }
 

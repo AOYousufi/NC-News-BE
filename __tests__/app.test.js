@@ -971,6 +971,149 @@ describe("saved articles, follows, drafts, activity and replies", () => {
   });
 });
 
+describe("notifications", () => {
+  test("following a user creates an unread notification", async () => {
+    await request(app)
+      .post("/api/users/butter_bridge/follow")
+      .set(auth("rogersop"))
+      .expect(204);
+
+    const { body } = await request(app)
+      .get("/api/users/me/notifications")
+      .set(auth("butter_bridge"))
+      .expect(200);
+
+    expect(body.unread_count).toBe(1);
+    expect(body.notifications[0]).toEqual(
+      expect.objectContaining({
+        type: "follow",
+        actor_username: "rogersop",
+        read_at: null,
+      })
+    );
+  });
+
+  test("commenting and replying create notifications for the relevant user", async () => {
+    const comment = await request(app)
+      .post("/api/articles/1/comments")
+      .set(auth("rogersop"))
+      .send({ body: "A notification comment" })
+      .expect(201);
+
+    const articleOwnerNotifications = await request(app)
+      .get("/api/users/me/notifications")
+      .set(auth("butter_bridge"))
+      .expect(200);
+
+    expect(
+      articleOwnerNotifications.body.notifications.map((item) => item.type)
+    ).toContain("article_comment");
+
+    await request(app)
+      .post("/api/articles/1/comments")
+      .set(auth("icellusedkars"))
+      .send({
+        body: "A notification reply",
+        parent_comment_id: comment.body.Comment.comment_id,
+      })
+      .expect(201);
+
+    const replyNotifications = await request(app)
+      .get("/api/users/me/notifications")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(
+      replyNotifications.body.notifications.map((item) => item.type)
+    ).toContain("reply");
+  });
+
+  test("initial article votes notify the article owner but vote changes do not duplicate notifications", async () => {
+    await request(app)
+      .patch("/api/articles/1")
+      .set(auth("rogersop"))
+      .send({ inc_votes: 1 })
+      .expect(200);
+
+    await request(app)
+      .patch("/api/articles/1")
+      .set(auth("rogersop"))
+      .send({ inc_votes: -1 })
+      .expect(200);
+
+    const { body } = await request(app)
+      .get("/api/users/me/notifications")
+      .set(auth("butter_bridge"))
+      .expect(200);
+
+    expect(
+      body.notifications.filter((item) => item.actor_username === "rogersop")
+    ).toHaveLength(1);
+  });
+
+  test("users can mark one or all notifications as read", async () => {
+    await request(app)
+      .post("/api/users/butter_bridge/follow")
+      .set(auth("rogersop"))
+      .expect(204);
+
+    const list = await request(app)
+      .get("/api/users/me/notifications")
+      .set(auth("butter_bridge"))
+      .expect(200);
+
+    const notificationId = list.body.notifications[0].notification_id;
+
+    await request(app)
+      .patch("/api/users/me/notifications/" + notificationId + "/read")
+      .set(auth("butter_bridge"))
+      .expect(200);
+
+    const countAfterOne = await request(app)
+      .get("/api/users/me/notifications/count")
+      .set(auth("butter_bridge"))
+      .expect(200);
+
+    expect(countAfterOne.body.unread_count).toBe(0);
+
+    await request(app)
+      .post("/api/users/butter_bridge/follow")
+      .set(auth("icellusedkars"))
+      .expect(204);
+
+    await request(app)
+      .patch("/api/users/me/notifications/read-all")
+      .set(auth("butter_bridge"))
+      .expect(204);
+
+    const finalCount = await request(app)
+      .get("/api/users/me/notifications/count")
+      .set(auth("butter_bridge"))
+      .expect(200);
+
+    expect(finalCount.body.unread_count).toBe(0);
+  });
+
+  test("users cannot mark someone else's notification as read", async () => {
+    await request(app)
+      .post("/api/users/butter_bridge/follow")
+      .set(auth("rogersop"))
+      .expect(204);
+
+    const list = await request(app)
+      .get("/api/users/me/notifications")
+      .set(auth("butter_bridge"))
+      .expect(200);
+
+    const notificationId = list.body.notifications[0].notification_id;
+
+    await request(app)
+      .patch("/api/users/me/notifications/" + notificationId + "/read")
+      .set(auth("rogersop"))
+      .expect(404);
+  });
+});
+
 describe("error handling", () => {
   test("unknown routes return a consistent 404 body", async () => {
     const { body } = await request(app).get("/api/does-not-exist").expect(404);

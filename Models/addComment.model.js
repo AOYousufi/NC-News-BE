@@ -1,11 +1,12 @@
 const db = require("../db/connection");
 const { parsePositiveId, badRequest } = require("../utils/validation");
+const { createNotification } = require("./notification.model");
 
 async function addComment(username, body, articleIdInput, parentCommentIdInput) {
   const articleId = parsePositiveId(articleIdInput);
 
   const articleResult = await db.query(
-    "SELECT article_id FROM articles WHERE article_id = $1 AND status = 'published';",
+    "SELECT article_id, author FROM articles WHERE article_id = $1 AND status = 'published';",
     [articleId]
   );
 
@@ -14,12 +15,13 @@ async function addComment(username, body, articleIdInput, parentCommentIdInput) 
   }
 
   let parentCommentId = null;
+  let parentAuthor = null;
 
   if (parentCommentIdInput !== undefined && parentCommentIdInput !== null) {
     parentCommentId = parsePositiveId(parentCommentIdInput);
 
     const parentResult = await db.query(
-      `SELECT comment_id, article_id
+      `SELECT comment_id, article_id, author
        FROM comments
        WHERE comment_id = $1;`,
       [parentCommentId]
@@ -32,6 +34,8 @@ async function addComment(username, body, articleIdInput, parentCommentIdInput) 
     if (parentResult.rows[0].article_id !== articleId) {
       throw badRequest("Reply must belong to the same article");
     }
+
+    parentAuthor = parentResult.rows[0].author;
   }
 
   const { rows } = await db.query(
@@ -41,7 +45,30 @@ async function addComment(username, body, articleIdInput, parentCommentIdInput) 
     [articleId, username, body, parentCommentId]
   );
 
-  return rows[0];
+  const comment = rows[0];
+  const articleAuthor = articleResult.rows[0].author;
+
+  if (parentAuthor) {
+    await createNotification({
+      recipient: parentAuthor,
+      actor: username,
+      type: "reply",
+      articleId,
+      commentId: comment.comment_id,
+    });
+  }
+
+  if (!parentAuthor || parentAuthor !== articleAuthor) {
+    await createNotification({
+      recipient: articleAuthor,
+      actor: username,
+      type: "article_comment",
+      articleId,
+      commentId: comment.comment_id,
+    });
+  }
+
+  return comment;
 }
 
 module.exports = { addComment };

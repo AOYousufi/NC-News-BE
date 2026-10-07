@@ -1,5 +1,7 @@
 const db = require("../db/connection");
 const { parsePositiveId } = require("../utils/validation");
+const { createNotification } = require("./notification.model");
+
 
 async function ensurePublishedArticle(articleIdInput) {
   const articleId = parsePositiveId(articleIdInput);
@@ -61,12 +63,21 @@ async function followUser(follower, followed) {
 
   await ensureUser(followed);
 
-  await db.query(
+  const result = await db.query(
     `INSERT INTO user_follows (follower_username, followed_username)
      VALUES ($1, $2)
-     ON CONFLICT (follower_username, followed_username) DO NOTHING;`,
+     ON CONFLICT (follower_username, followed_username) DO NOTHING
+     RETURNING follower_username;`,
     [follower, followed]
   );
+
+  if (result.rowCount > 0) {
+    await createNotification({
+      recipient: followed,
+      actor: follower,
+      type: "follow",
+    });
+  }
 }
 
 async function unfollowUser(follower, followed) {
