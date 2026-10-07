@@ -1025,6 +1025,53 @@ describe("public profile stats", () => {
   });
 });
 
+describe("account deletion", () => {
+  test("authenticated users can delete their account with password and username confirmation", async () => {
+    await request(app)
+      .delete("/api/users/me")
+      .set(auth("rogersop"))
+      .send({
+        password: "password123",
+        confirmation: "rogersop",
+      })
+      .expect(204);
+
+    await request(app).get("/api/users/rogersop").expect(404);
+
+    const articles = await request(app)
+      .get("/api/articles?author=rogersop")
+      .expect(404);
+
+    expect(articles.body.msg).toBe("Not Found");
+  });
+
+  test("account deletion rejects an incorrect password", async () => {
+    const { body } = await request(app)
+      .delete("/api/users/me")
+      .set(auth("rogersop"))
+      .send({
+        password: "wrong-password",
+        confirmation: "rogersop",
+      })
+      .expect(401);
+
+    expect(body.msg).toBe("Current password is incorrect");
+  });
+
+  test("account deletion requires an exact username confirmation", async () => {
+    const { body } = await request(app)
+      .delete("/api/users/me")
+      .set(auth("rogersop"))
+      .send({
+        password: "password123",
+        confirmation: "DELETE",
+      })
+      .expect(400);
+
+    expect(body.msg).toBe("Bad Request");
+  });
+});
+
 describe("password changes", () => {
   test("authenticated users can change their password with the current password", async () => {
     await request(app)
