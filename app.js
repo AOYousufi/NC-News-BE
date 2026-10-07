@@ -7,6 +7,8 @@ const commentRouter = require("./routes/comments");
 const reportRouter = require("./routes/reports");
 const moderationRouter = require("./routes/moderation");
 const getAllApi = require("./Controllers/getAPI.controller.js");
+const { health, readiness } = require("./Controllers/health.controller");
+const requestLogger = require("./middleware/requestLogger");
 const {
   authRateLimiter,
   writeRateLimiter,
@@ -22,7 +24,10 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use(requestLogger);
 
+app.get("/healthz", health);
+app.get("/readyz", readiness);
 app.get("/api", getAllApi);
 app.use("/api/users/login", authRateLimiter);
 app.use("/api/users/register", authRateLimiter);

@@ -19,6 +19,22 @@ const auth = (username) => ({
 beforeEach(() => seed({ topicData, userData, articleData, commentData }));
 afterAll(() => db.end());
 
+describe("service health", () => {
+  test("GET /healthz reports process health", async () => {
+    const response = await request(app).get("/healthz").expect(200);
+
+    expect(response.headers["x-request-id"]).toEqual(expect.any(String));
+    expect(response.body.status).toBe("ok");
+    expect(response.body.service).toBe("nc-news-api");
+  });
+
+  test("GET /readyz checks database readiness", async () => {
+    const { body } = await request(app).get("/readyz").expect(200);
+    expect(body.status).toBe("ready");
+    expect(body.database).toBe("up");
+  });
+});
+
 describe("GET /api", () => {
   test("200: returns endpoint documentation", async () => {
     const { body } = await request(app).get("/api").expect(200);
