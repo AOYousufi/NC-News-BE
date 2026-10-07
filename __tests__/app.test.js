@@ -1025,6 +1025,64 @@ describe("public profile stats", () => {
   });
 });
 
+describe("password changes", () => {
+  test("authenticated users can change their password with the current password", async () => {
+    await request(app)
+      .patch("/api/users/me/password")
+      .set(auth("rogersop"))
+      .send({
+        current_password: "password123",
+        new_password: "a-new-password-123",
+      })
+      .expect(204);
+
+    await request(app)
+      .post("/api/users/login")
+      .send({ username: "rogersop", password: "password123" })
+      .expect(401);
+
+    await request(app)
+      .post("/api/users/login")
+      .send({ username: "rogersop", password: "a-new-password-123" })
+      .expect(200);
+  });
+
+  test("password changes reject an incorrect current password", async () => {
+    const { body } = await request(app)
+      .patch("/api/users/me/password")
+      .set(auth("rogersop"))
+      .send({
+        current_password: "wrong-password",
+        new_password: "a-new-password-123",
+      })
+      .expect(401);
+
+    expect(body.msg).toBe("Current password is incorrect");
+  });
+
+  test("password changes validate the new password", async () => {
+    await request(app)
+      .patch("/api/users/me/password")
+      .set(auth("rogersop"))
+      .send({
+        current_password: "password123",
+        new_password: "short",
+      })
+      .expect(400);
+
+    const same = await request(app)
+      .patch("/api/users/me/password")
+      .set(auth("rogersop"))
+      .send({
+        current_password: "password123",
+        new_password: "password123",
+      })
+      .expect(400);
+
+    expect(same.body.msg).toBe("New password must be different");
+  });
+});
+
 describe("article revision history", () => {
   test("editing an owned article stores the previous version", async () => {
     const before = await request(app).get("/api/articles/4").expect(200);

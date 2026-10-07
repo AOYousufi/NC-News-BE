@@ -6,6 +6,7 @@ const createNewUser = require("../Controllers/createNewUser.controller");
 const loginUser = require("../Controllers/loginUser.controller");
 const getCurrentUser = require("../Controllers/getCurrentUser.controller");
 const updateCurrentUser = require("../Controllers/updateCurrentUser.controller");
+const changePassword = require("../Controllers/changePassword.controller");
 const {
   getUserComments,
   getUserStats,
@@ -34,6 +35,7 @@ router.post("/login", loginUser);
 
 router.get("/me", authenticateUser, getCurrentUser);
 router.patch("/me", authenticateUser, updateCurrentUser);
+router.patch("/me/password", authenticateUser, changePassword);
 router.get("/me/activity", authenticateUser, getActivityController);
 router.get("/me/saved", authenticateUser, getSavedArticlesController);
 router.get("/me/following", authenticateUser, getFollowingController);

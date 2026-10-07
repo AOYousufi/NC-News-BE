@@ -17,4 +17,19 @@ async function updateUserProfile(username, updates) {
   return rows[0];
 }
 
-module.exports = { findUserForAuthentication, updateUserProfile };
+async function updatePasswordHash(username, passwordHash) {
+  const { rows } = await db.query(
+    `UPDATE users
+     SET password_hash = $1
+     WHERE username = $2
+     RETURNING username;`,
+    [passwordHash, username]
+  );
+  return rows[0];
+}
+
+module.exports = {
+  findUserForAuthentication,
+  updatePasswordHash,
+  updateUserProfile,
+};
