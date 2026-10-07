@@ -1,28 +1,14 @@
-const LEGACY_LOCKED_PASSWORD = "legacy-account-locked";
-const LEGACY_DEMO_PASSWORD_HASH =
-  "scrypt$0123456789abcdef0123456789abcdef$d088ff89d52c0da7840b769c9055596af699cfdd025910d984548f1c2aaec912263f7f9b924ed19c9e43feff83d9fa02bea94b1b90b66671f3083fd85d65de4f";
-
 async function up(client) {
-await client.query(`
-    ALTER TABLE users
-    ADD COLUMN IF NOT EXISTS password_hash VARCHAR;
-  `);
-
-  await client.query(
-    `UPDATE users
-     SET password_hash = $1
-     WHERE password_hash IS NULL OR password_hash = $2;`,
-    [LEGACY_LOCKED_PASSWORD, LEGACY_DEMO_PASSWORD_HASH]
-  );
-
   await client.query(`
     ALTER TABLE users
-    ALTER COLUMN password_hash SET NOT NULL;
-  `);
-
-  await client.query(`
-    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS password_hash VARCHAR,
     ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'user';
+  `);
+
+  await client.query(`
+    UPDATE users
+    SET password_hash = 'legacy-account-locked'
+    WHERE password_hash IS NULL;
   `);
 
   await client.query(`
@@ -31,21 +17,21 @@ await client.query(`
 
   await client.query(`
     ALTER TABLE users
+    ALTER COLUMN password_hash SET NOT NULL,
     ALTER COLUMN role SET DEFAULT 'user',
     ALTER COLUMN role SET NOT NULL;
   `);
 
   await client.query(`
-    DO $
+    DO $$
     BEGIN
       IF NOT EXISTS (
         SELECT 1 FROM pg_constraint WHERE conname = 'users_role_check'
       ) THEN
-        ALTER TABLE users
-        ADD CONSTRAINT users_role_check
+        ALTER TABLE users ADD CONSTRAINT users_role_check
         CHECK (role IN ('user', 'moderator'));
       END IF;
-    END $;
+    END $$;
   `);
 
   await client.query(`
@@ -70,8 +56,7 @@ await client.query(`
       IF NOT EXISTS (
         SELECT 1 FROM pg_constraint WHERE conname = 'articles_status_check'
       ) THEN
-        ALTER TABLE articles
-        ADD CONSTRAINT articles_status_check
+        ALTER TABLE articles ADD CONSTRAINT articles_status_check
         CHECK (status IN ('published', 'draft'));
       END IF;
     END $$;
@@ -99,23 +84,17 @@ await client.query(`
   `);
 
   await client.query(`
-    DO $
-    BEGIN
-      IF to_regclass('public.article_revisions') IS NULL THEN
-        CREATE TABLE article_revisions (
-          revision_id SERIAL PRIMARY KEY,
-          article_id INT NOT NULL REFERENCES articles(article_id) ON DELETE CASCADE,
-          editor_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE,
-          title VARCHAR NOT NULL,
-          topic VARCHAR NOT NULL,
-          body VARCHAR NOT NULL,
-          article_img_url VARCHAR,
-          status VARCHAR(20) NOT NULL,
-          created_at TIMESTAMP DEFAULT NOW()
-        );
-        UPDATE articles SET updated_at = created_at;
-      END IF;
-    END $;
+    CREATE TABLE IF NOT EXISTS article_revisions (
+      revision_id SERIAL PRIMARY KEY,
+      article_id INT NOT NULL REFERENCES articles(article_id) ON DELETE CASCADE,
+      editor_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE,
+      title VARCHAR NOT NULL,
+      topic VARCHAR NOT NULL,
+      body VARCHAR NOT NULL,
+      article_img_url VARCHAR,
+      status VARCHAR(20) NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
   `);
 
   await client.query(`
@@ -170,12 +149,7 @@ await client.query(`
         CHECK (status IN ('open', 'resolved', 'dismissed')),
       created_at TIMESTAMP DEFAULT NOW(),
       reviewer_username VARCHAR REFERENCES users(username) ON DELETE SET NULL,
-      reviewed_at TIMESTAMP,
-      CHECK (
-        (target_type = 'article' AND article_id IS NOT NULL AND comment_id IS NULL)
-        OR
-        (target_type = 'comment' AND comment_id IS NOT NULL AND article_id IS NOT NULL)
-      )
+      reviewed_at TIMESTAMP
     );
   `);
 
@@ -184,9 +158,7 @@ await client.query(`
       notification_id SERIAL PRIMARY KEY,
       recipient_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE,
       actor_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE,
-      type VARCHAR(40) NOT NULL CHECK (
-        type IN ('follow', 'article_comment', 'reply', 'article_agree', 'article_disagree')
-      ),
+      type VARCHAR(40) NOT NULL,
       article_id INT REFERENCES articles(article_id) ON DELETE CASCADE,
       comment_id INT REFERENCES comments(comment_id) ON DELETE CASCADE,
       created_at TIMESTAMP DEFAULT NOW(),
@@ -211,10 +183,9 @@ await client.query(`
       ON reports(status, created_at DESC);
   `);
 }
-}
 
 module.exports = {
   version: 1,
-  name: "baseline_product_schema",
+  name: "current_product_schema",
   up,
 };

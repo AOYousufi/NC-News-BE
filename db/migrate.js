@@ -1,7 +1,7 @@
 const db = require("./connection");
-const baseline = require("./migrations/001_baseline");
+const currentSchema = require("./migrations/001_current_schema");
 
-const migrations = [baseline];
+const migrations = [currentSchema];
 
 async function ensureMigrationTable() {
   await db.query(`
