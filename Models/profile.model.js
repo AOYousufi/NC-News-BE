@@ -28,4 +28,26 @@ async function getPublicProfileStats(username) {
   return rows[0];
 }
 
-module.exports = { getPublicProfileStats };
+async function getPublicUserComments(username) {
+  const user = await db.query(
+    "SELECT username FROM users WHERE username = $1;",
+    [username]
+  );
+
+  if (!user.rows.length) throw { status: 404, msg: "User Not Found" };
+
+  const { rows } = await db.query(
+    `SELECT c.comment_id, c.body, c.article_id, c.votes, c.created_at,
+            c.parent_comment_id, a.title AS article_title
+     FROM comments c
+     JOIN articles a ON a.article_id = c.article_id
+     WHERE c.author = $1 AND a.status = 'published'
+     ORDER BY c.created_at DESC
+     LIMIT 100;`,
+    [username]
+  );
+
+  return rows;
+}
+
+module.exports = { getPublicProfileStats, getPublicUserComments };

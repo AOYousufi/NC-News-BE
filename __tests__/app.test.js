@@ -998,6 +998,35 @@ describe("public profile stats", () => {
   });
 });
 
+describe("public profile comments", () => {
+  test("GET /api/users/:username/comments returns public comments with article context", async () => {
+    const { body } = await request(app)
+      .get("/api/users/butter_bridge/comments")
+      .expect(200);
+
+    expect(Array.isArray(body.comments)).toBe(true);
+    body.comments.forEach((comment) => {
+      expect(comment).toEqual(
+        expect.objectContaining({
+          comment_id: expect.any(Number),
+          body: expect.any(String),
+          article_id: expect.any(Number),
+          article_title: expect.any(String),
+          votes: expect.any(Number),
+        })
+      );
+    });
+  });
+
+  test("public comments return 404 for an unknown user", async () => {
+    const { body } = await request(app)
+      .get("/api/users/not-a-real-user/comments")
+      .expect(404);
+
+    expect(body.msg).toBe("User Not Found");
+  });
+});
+
 describe("comment voting", () => {
   test("users can agree, switch and clear a comment vote", async () => {
     const agreed = await request(app)
