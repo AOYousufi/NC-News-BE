@@ -23,6 +23,34 @@ async function migrate() {
   `);
 
   await db.query(`
+    ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'user';
+  `);
+
+  await db.query(`
+    UPDATE users SET role = 'user' WHERE role IS NULL;
+  `);
+
+  await db.query(`
+    ALTER TABLE users
+    ALTER COLUMN role SET DEFAULT 'user',
+    ALTER COLUMN role SET NOT NULL;
+  `);
+
+  await db.query(`
+    DO $
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'users_role_check'
+      ) THEN
+        ALTER TABLE users
+        ADD CONSTRAINT users_role_check
+        CHECK (role IN ('user', 'moderator'));
+      END IF;
+    END $;
+  `);
+
+  await db.query(`
     ALTER TABLE articles
     ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW(),
     ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'published';
@@ -130,6 +158,30 @@ async function migrate() {
   `);
 
   await db.query(`
+    CREATE TABLE IF NOT EXISTS reports (
+      report_id SERIAL PRIMARY KEY,
+      reporter_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE,
+      target_type VARCHAR(20) NOT NULL CHECK (target_type IN ('article', 'comment')),
+      article_id INT REFERENCES articles(article_id) ON DELETE CASCADE,
+      comment_id INT REFERENCES comments(comment_id) ON DELETE CASCADE,
+      reason VARCHAR(40) NOT NULL CHECK (
+        reason IN ('spam', 'harassment', 'misinformation', 'off-topic', 'other')
+      ),
+      details VARCHAR(1000) DEFAULT '',
+      status VARCHAR(20) NOT NULL DEFAULT 'open'
+        CHECK (status IN ('open', 'resolved', 'dismissed')),
+      created_at TIMESTAMP DEFAULT NOW(),
+      reviewer_username VARCHAR REFERENCES users(username) ON DELETE SET NULL,
+      reviewed_at TIMESTAMP,
+      CHECK (
+        (target_type = 'article' AND article_id IS NOT NULL AND comment_id IS NULL)
+        OR
+        (target_type = 'comment' AND comment_id IS NOT NULL AND article_id IS NOT NULL)
+      )
+    );
+  `);
+
+  await db.query(`
     CREATE TABLE IF NOT EXISTS notifications (
       notification_id SERIAL PRIMARY KEY,
       recipient_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE,
@@ -157,6 +209,8 @@ async function migrate() {
       ON user_follows(follower_username);
     CREATE INDEX IF NOT EXISTS idx_notifications_recipient_unread
       ON notifications(recipient_username, read_at, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_reports_status_created_at
+      ON reports(status, created_at DESC);
   `);
 }
 

@@ -4,6 +4,8 @@ const userRouter = require("./routes/users");
 const articleRouter = require("./routes/article");
 const topicRouter = require("./routes/topics");
 const commentRouter = require("./routes/comments");
+const reportRouter = require("./routes/reports");
+const moderationRouter = require("./routes/moderation");
 const getAllApi = require("./Controllers/getAPI.controller.js");
 const {
   routeNotFound,
@@ -22,6 +24,8 @@ app.use("/api/users", userRouter);
 app.use("/api/articles", articleRouter);
 app.use("/api/topics", topicRouter);
 app.use("/api/comments", commentRouter);
+app.use("/api/reports", reportRouter);
+app.use("/api/moderation", moderationRouter);
 
 app.use(routeNotFound);
 app.use(handleCustomErrors);

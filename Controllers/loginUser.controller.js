@@ -24,6 +24,7 @@ async function loginUser(req, res, next) {
         username: user.username,
         name: user.name,
         avatar_url: user.avatar_url,
+        role: user.role,
       },
       token,
     });

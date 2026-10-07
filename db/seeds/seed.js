@@ -11,7 +11,8 @@ const SEEDED_PASSWORD_HASH =
 
 const seed = ({ topicData, userData, articleData, commentData }) => {
   return db
-    .query("DROP TABLE IF EXISTS notifications;")
+    .query("DROP TABLE IF EXISTS reports;")
+    .then(() => db.query("DROP TABLE IF EXISTS notifications;"))
     .then(() => db.query("DROP TABLE IF EXISTS article_revisions;"))
     .then(() => db.query("DROP TABLE IF EXISTS saved_articles;"))
     .then(() => db.query("DROP TABLE IF EXISTS user_follows;"))
@@ -26,7 +27,7 @@ const seed = ({ topicData, userData, articleData, commentData }) => {
         "CREATE TABLE topics (slug VARCHAR PRIMARY KEY, description VARCHAR);"
       );
       const usersTablePromise = db.query(
-        "CREATE TABLE users (username VARCHAR PRIMARY KEY, name VARCHAR NOT NULL, avatar_url VARCHAR, password_hash VARCHAR NOT NULL);"
+        "CREATE TABLE users (username VARCHAR PRIMARY KEY, name VARCHAR NOT NULL, avatar_url VARCHAR, password_hash VARCHAR NOT NULL, role VARCHAR(20) DEFAULT 'user' NOT NULL CHECK (role IN ('user', 'moderator')));"
       );
       return Promise.all([topicsTablePromise, usersTablePromise]);
     })
@@ -67,6 +68,11 @@ const seed = ({ topicData, userData, articleData, commentData }) => {
     )
     .then(() =>
       db.query(
+        "CREATE TABLE reports (report_id SERIAL PRIMARY KEY, reporter_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE, target_type VARCHAR(20) NOT NULL CHECK (target_type IN ('article', 'comment')), article_id INT REFERENCES articles(article_id) ON DELETE CASCADE, comment_id INT REFERENCES comments(comment_id) ON DELETE CASCADE, reason VARCHAR(40) NOT NULL CHECK (reason IN ('spam', 'harassment', 'misinformation', 'off-topic', 'other')), details VARCHAR(1000) DEFAULT '', status VARCHAR(20) NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'resolved', 'dismissed')), created_at TIMESTAMP DEFAULT NOW(), reviewer_username VARCHAR REFERENCES users(username) ON DELETE SET NULL, reviewed_at TIMESTAMP, CHECK ((target_type = 'article' AND article_id IS NOT NULL AND comment_id IS NULL) OR (target_type = 'comment' AND comment_id IS NOT NULL AND article_id IS NOT NULL)));"
+      )
+    )
+    .then(() =>
+      db.query(
         "CREATE TABLE notifications (notification_id SERIAL PRIMARY KEY, recipient_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE, actor_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE, type VARCHAR(40) NOT NULL CHECK (type IN ('follow', 'article_comment', 'reply', 'article_agree', 'article_disagree')), article_id INT REFERENCES articles(article_id) ON DELETE CASCADE, comment_id INT REFERENCES comments(comment_id) ON DELETE CASCADE, created_at TIMESTAMP DEFAULT NOW(), read_at TIMESTAMP);"
       )
     )
@@ -86,6 +92,11 @@ const seed = ({ topicData, userData, articleData, commentData }) => {
       );
       return Promise.all([db.query(insertTopicsQuery), db.query(insertUsersQuery)]);
     })
+    .then(() =>
+      db.query(
+        "UPDATE users SET role = 'moderator' WHERE username = 'rogersop';"
+      )
+    )
     .then(() => {
       const formattedArticleData = articleData.map(convertTimestampToDate);
       const query = format(

@@ -1025,6 +1025,123 @@ describe("public profile stats", () => {
   });
 });
 
+describe("reporting and moderation", () => {
+  test("authenticated users can report another user's article", async () => {
+    const { body } = await request(app)
+      .post("/api/reports")
+      .set(auth("rogersop"))
+      .send({
+        target_type: "article",
+        target_id: 1,
+        reason: "spam",
+        details: "Repeated promotional content",
+      })
+      .expect(201);
+
+    expect(body.report).toEqual(
+      expect.objectContaining({
+        reporter_username: "rogersop",
+        target_type: "article",
+        article_id: 1,
+        reason: "spam",
+        status: "open",
+      })
+    );
+  });
+
+  test("users can report comments and cannot report their own content", async () => {
+    await request(app)
+      .post("/api/reports")
+      .set(auth("rogersop"))
+      .send({
+        target_type: "comment",
+        target_id: 2,
+        reason: "harassment",
+      })
+      .expect(201);
+
+    const own = await request(app)
+      .post("/api/reports")
+      .set(auth("rogersop"))
+      .send({
+        target_type: "article",
+        target_id: 4,
+        reason: "other",
+      })
+      .expect(400);
+
+    expect(own.body.msg).toBe("You cannot report your own content");
+  });
+
+  test("normal users cannot access the moderation queue", async () => {
+    const { body } = await request(app)
+      .get("/api/moderation/reports")
+      .set(auth("butter_bridge"))
+      .expect(403);
+
+    expect(body.msg).toBe("Moderator access required");
+  });
+
+  test("moderators can list and resolve reports", async () => {
+    const created = await request(app)
+      .post("/api/reports")
+      .set(auth("butter_bridge"))
+      .send({
+        target_type: "article",
+        target_id: 4,
+        reason: "off-topic",
+      })
+      .expect(201);
+
+    const list = await request(app)
+      .get("/api/moderation/reports")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(
+      list.body.reports.some(
+        (report) => report.report_id === created.body.report.report_id
+      )
+    ).toBe(true);
+
+    const reviewed = await request(app)
+      .patch("/api/moderation/reports/" + created.body.report.report_id)
+      .set(auth("rogersop"))
+      .send({ status: "resolved" })
+      .expect(200);
+
+    expect(reviewed.body.report).toEqual(
+      expect.objectContaining({
+        status: "resolved",
+        reviewer_username: "rogersop",
+        reviewed_at: expect.any(String),
+      })
+    );
+  });
+
+  test("reporting validates target type, reason and target existence", async () => {
+    await request(app)
+      .post("/api/reports")
+      .set(auth("rogersop"))
+      .send({
+        target_type: "article",
+        target_id: 9999,
+        reason: "spam",
+      })
+      .expect(404);
+
+    await request(app)
+      .post("/api/reports")
+      .set(auth("rogersop"))
+      .send({
+        target_type: "article",
+        target_id: 1,
+        reason: "not-valid",
+      })
+      .expect(400);
+  });
+});
+
 describe("account deletion", () => {
   test("authenticated users can delete their account with password and username confirmation", async () => {
     await request(app)
