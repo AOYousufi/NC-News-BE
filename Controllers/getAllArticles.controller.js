@@ -2,12 +2,13 @@ const { fetchAllArticles } = require("../Models/getAllArticles.model");
 
 async function getAllArticles(req, res, next) {
   try {
-    const { sort_by, order, topic, author, limit, p } = req.query;
+    const { sort_by, order, topic, author, search, limit, p } = req.query;
     const articles = await fetchAllArticles({
       sort_by,
       order,
       topic,
       author,
+      search,
       limit,
       p,
     });

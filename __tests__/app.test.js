@@ -80,6 +80,43 @@ describe("public read endpoints", () => {
     body.articles.forEach((article) => expect(article.author).toBe("rogersop"));
   });
 
+  test("GET /api/articles supports text search across title, body and author", async () => {
+    const byTitle = await request(app)
+      .get("/api/articles?search=mitch")
+      .expect(200);
+    expect(byTitle.body.articles.length).toBeGreaterThan(0);
+    expect(
+      byTitle.body.articles.some((article) =>
+        article.title.toLowerCase().includes("mitch")
+      )
+    ).toBe(true);
+
+    const byAuthor = await request(app)
+      .get("/api/articles?search=rogersop")
+      .expect(200);
+    expect(byAuthor.body.articles.length).toBeGreaterThan(0);
+    byAuthor.body.articles.forEach((article) =>
+      expect(
+        article.author.toLowerCase().includes("rogersop") ||
+          article.title.toLowerCase().includes("rogersop")
+      ).toBe(true)
+    );
+  });
+
+  test("GET /api/articles search composes with topic filtering", async () => {
+    const { body } = await request(app)
+      .get("/api/articles?topic=cats&search=cat")
+      .expect(200);
+    body.articles.forEach((article) => expect(article.topic).toBe("cats"));
+  });
+
+  test("GET /api/articles validates search input", async () => {
+    const { body } = await request(app)
+      .get("/api/articles?search=a")
+      .expect(400);
+    expect(body.msg).toBe("Invalid search value");
+  });
+
   test("GET /api/articles supports optional pagination without changing the default response", async () => {
     const { body } = await request(app).get("/api/articles?limit=2&p=2").expect(200);
     expect(body.articles).toHaveLength(2);

@@ -17,7 +17,17 @@ function validateFilter(value, field) {
   if (typeof value !== "string" || value.trim().length === 0 || value.length > 100) {
     throw badRequest(`Invalid ${field} value`);
   }
-  return value;
+  return value.trim();
+}
+
+function validateSearch(value) {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string") throw badRequest("Invalid search value");
+  const search = value.trim();
+  if (search.length < 2 || search.length > 120) {
+    throw badRequest("Invalid search value");
+  }
+  return search;
 }
 
 async function ensureFilterExists(table, column, value) {
@@ -48,6 +58,7 @@ async function fetchAllArticles(options = {}) {
 
   const topic = validateFilter(options.topic, "topic");
   const author = validateFilter(options.author, "author");
+  const search = validateSearch(options.search);
   const limit = parsePositiveIntegerQuery(options.limit, "limit", 100);
   const page = parsePositiveIntegerQuery(options.p, "page");
 
@@ -64,6 +75,13 @@ async function fetchAllArticles(options = {}) {
   if (author) {
     values.push(author);
     where.push("articles.author = $" + values.length);
+  }
+  if (search) {
+    values.push("%" + search + "%");
+    const searchParam = "$" + values.length;
+    where.push(
+      `(articles.title ILIKE ${searchParam} OR articles.body ILIKE ${searchParam} OR articles.author ILIKE ${searchParam})`
+    );
   }
 
   let query =
