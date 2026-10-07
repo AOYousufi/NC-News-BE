@@ -100,6 +100,13 @@ The existing public GET response shapes are preserved. The frontend needs change
 
 `FRONTEND_INTEGRATION.md` is intentionally ignored by Git so a detailed local migration checklist can be maintained without publishing it.
 
+## Engineering docs
+
+- Architecture and data-flow guide: `docs/ARCHITECTURE.md`
+- Portfolio/demo walkthrough: `docs/DEMO.md`
+
+The API also exposes `/healthz` for process health and `/readyz` for database readiness. Production migrations are version-tracked in `schema_migrations`.
+
 ## Local setup
 
 ```bash
@@ -127,6 +134,7 @@ Then run:
 ```bash
 npm run setup-dbs
 npm run seed
+npm run migrate
 npm test
 ```
 
@@ -156,3 +164,7 @@ Built as part of the Northcoders Full-Stack Software Development bootcamp.
 ## Product features
 
 The API now supports private draft articles, saved/bookmarked articles, user following with a personalised feed, threaded comment replies via `parent_comment_id`, and a private activity dashboard. Public article queries exclude drafts. Drafts can only be retrieved through authenticated owner endpoints until published.
+
+## Demo reset
+
+For local portfolio demonstrations, `npm run demo:reset` recreates and reseeds the development databases. Do not use destructive seed commands against production.

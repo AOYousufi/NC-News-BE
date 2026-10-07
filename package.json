@@ -12,7 +12,8 @@
     "start": "node listen.js",
     "seed-prod": "NODE_ENV=production npm run seed",
     "dev": "nodemon listen.js",
-    "migrate": "node ./db/migrate.js"
+    "migrate": "node ./db/migrate.js",
+    "demo:reset": "npm run setup-dbs && npm run seed"
   },
   "repository": {
     "type": "git",
