@@ -102,13 +102,14 @@ const seed = ({ topicData, userData, articleData, commentData }) => {
       const articleIdLookup = createRef(articleRows, "title", "article_id");
       const formattedCommentData = formatComments(commentData, articleIdLookup);
       const query = format(
-        "INSERT INTO comments (body, author, article_id, votes, created_at) VALUES %L;",
+        "INSERT INTO comments (body, author, article_id, votes, created_at, updated_at) VALUES %L;",
         formattedCommentData.map(
           ({ body, author, article_id, votes = 0, created_at }) => [
             body,
             author,
             article_id,
             votes,
+            created_at,
             created_at,
           ]
         )
