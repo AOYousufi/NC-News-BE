@@ -971,6 +971,77 @@ describe("saved articles, follows, drafts, activity and replies", () => {
   });
 });
 
+describe("comment voting", () => {
+  test("users can agree, switch and clear a comment vote", async () => {
+    const agreed = await request(app)
+      .patch("/api/comments/2/vote")
+      .set(auth("rogersop"))
+      .send({ inc_votes: 1 })
+      .expect(200);
+
+    expect(agreed.body.comment.user_vote).toBe(1);
+
+    const disagreed = await request(app)
+      .patch("/api/comments/2/vote")
+      .set(auth("rogersop"))
+      .send({ inc_votes: -1 })
+      .expect(200);
+
+    expect(disagreed.body.comment.user_vote).toBe(-1);
+
+    const neutral = await request(app)
+      .patch("/api/comments/2/vote")
+      .set(auth("rogersop"))
+      .send({ inc_votes: -1 })
+      .expect(200);
+
+    expect(neutral.body.comment.user_vote).toBe(0);
+  });
+
+  test("users cannot vote on their own comments", async () => {
+    const { body } = await request(app)
+      .patch("/api/comments/2/vote")
+      .set(auth("butter_bridge"))
+      .send({ inc_votes: 1 })
+      .expect(403);
+
+    expect(body.msg).toBe("You cannot vote on your own comment");
+  });
+
+  test("comment vote state can be restored for all comments on an article", async () => {
+    await request(app)
+      .patch("/api/comments/2/vote")
+      .set(auth("rogersop"))
+      .send({ inc_votes: 1 })
+      .expect(200);
+
+    const { body } = await request(app)
+      .get("/api/articles/1/comment-votes")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(body.votes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ comment_id: 2, vote: 1, can_vote: true }),
+      ])
+    );
+  });
+
+  test("comment voting validates input and missing comments", async () => {
+    await request(app)
+      .patch("/api/comments/2/vote")
+      .set(auth("rogersop"))
+      .send({ inc_votes: 3 })
+      .expect(400);
+
+    await request(app)
+      .patch("/api/comments/9999/vote")
+      .set(auth("rogersop"))
+      .send({ inc_votes: 1 })
+      .expect(404);
+  });
+});
+
 describe("notifications", () => {
   test("following a user creates an unread notification", async () => {
     await request(app)

@@ -14,6 +14,7 @@ const seed = ({ topicData, userData, articleData, commentData }) => {
     .query("DROP TABLE IF EXISTS notifications;")
     .then(() => db.query("DROP TABLE IF EXISTS saved_articles;"))
     .then(() => db.query("DROP TABLE IF EXISTS user_follows;"))
+    .then(() => db.query("DROP TABLE IF EXISTS comment_votes;"))
     .then(() => db.query("DROP TABLE IF EXISTS article_votes;"))
     .then(() => db.query("DROP TABLE IF EXISTS comments;"))
     .then(() => db.query("DROP TABLE IF EXISTS articles;"))
@@ -41,6 +42,11 @@ const seed = ({ topicData, userData, articleData, commentData }) => {
     .then(() =>
       db.query(
         "CREATE TABLE article_votes (username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE, article_id INT NOT NULL REFERENCES articles(article_id) ON DELETE CASCADE, vote_value SMALLINT NOT NULL CHECK (vote_value IN (-1, 1)), PRIMARY KEY (username, article_id));"
+      )
+    )
+    .then(() =>
+      db.query(
+        "CREATE TABLE comment_votes (username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE, comment_id INT NOT NULL REFERENCES comments(comment_id) ON DELETE CASCADE, vote_value SMALLINT NOT NULL CHECK (vote_value IN (-1, 1)), PRIMARY KEY (username, comment_id));"
       )
     )
     .then(() =>

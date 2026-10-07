@@ -10,6 +10,7 @@ const {
 } = require("../Controllers/updateArticle.controller");
 const createArticle = require("../Controllers/createArticle.controller");
 const deleteArticle = require("../Controllers/deleteArticle.controller");
+const { getArticleCommentVotes } = require("../Controllers/commentVote.controller");
 const {
   getDraftsController,
   getFollowingFeedController,
@@ -28,6 +29,11 @@ router.get("/drafts", authenticateUser, getDraftsController);
 
 router.get("/:article_id/manage", authenticateUser, getManagedArticleController);
 router.get("/:article_id/vote", authenticateUser, getArticleVote);
+router.get(
+  "/:article_id/comment-votes",
+  authenticateUser,
+  getArticleCommentVotes
+);
 router.post("/:article_id/save", authenticateUser, saveArticleController);
 router.delete("/:article_id/save", authenticateUser, unsaveArticleController);
 
