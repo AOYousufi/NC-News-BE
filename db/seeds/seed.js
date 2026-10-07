@@ -12,6 +12,7 @@ const SEEDED_PASSWORD_HASH =
 const seed = ({ topicData, userData, articleData, commentData }) => {
   return db
     .query("DROP TABLE IF EXISTS notifications;")
+    .then(() => db.query("DROP TABLE IF EXISTS article_revisions;"))
     .then(() => db.query("DROP TABLE IF EXISTS saved_articles;"))
     .then(() => db.query("DROP TABLE IF EXISTS user_follows;"))
     .then(() => db.query("DROP TABLE IF EXISTS comment_votes;"))
@@ -37,6 +38,11 @@ const seed = ({ topicData, userData, articleData, commentData }) => {
     .then(() =>
       db.query(
         "CREATE TABLE comments (comment_id SERIAL PRIMARY KEY, body VARCHAR NOT NULL, article_id INT REFERENCES articles(article_id) ON DELETE CASCADE NOT NULL, author VARCHAR REFERENCES users(username) NOT NULL, votes INT DEFAULT 0 NOT NULL, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW(), parent_comment_id INT REFERENCES comments(comment_id) ON DELETE CASCADE);"
+      )
+    )
+    .then(() =>
+      db.query(
+        "CREATE TABLE article_revisions (revision_id SERIAL PRIMARY KEY, article_id INT NOT NULL REFERENCES articles(article_id) ON DELETE CASCADE, editor_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE, title VARCHAR NOT NULL, topic VARCHAR NOT NULL, body VARCHAR NOT NULL, article_img_url VARCHAR, status VARCHAR(20) NOT NULL, created_at TIMESTAMP DEFAULT NOW());"
       )
     )
     .then(() =>
@@ -83,13 +89,14 @@ const seed = ({ topicData, userData, articleData, commentData }) => {
     .then(() => {
       const formattedArticleData = articleData.map(convertTimestampToDate);
       const query = format(
-        "INSERT INTO articles (title, topic, author, body, created_at, votes, article_img_url) VALUES %L RETURNING *;",
+        "INSERT INTO articles (title, topic, author, body, created_at, updated_at, votes, article_img_url) VALUES %L RETURNING *;",
         formattedArticleData.map(
           ({ title, topic, author, body, created_at, votes = 0, article_img_url }) => [
             title,
             topic,
             author,
             body,
+            created_at,
             created_at,
             votes,
             article_img_url,

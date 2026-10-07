@@ -998,6 +998,56 @@ describe("public profile stats", () => {
   });
 });
 
+describe("article revision history", () => {
+  test("editing an owned article stores the previous version", async () => {
+    const before = await request(app).get("/api/articles/4").expect(200);
+    const original = before.body.article[0];
+
+    await request(app)
+      .patch("/api/articles/4")
+      .set(auth("rogersop"))
+      .send({ title: "Revision history title" })
+      .expect(200);
+
+    const { body } = await request(app)
+      .get("/api/articles/4/revisions")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(body.revisions).toHaveLength(1);
+    expect(body.revisions[0]).toEqual(
+      expect.objectContaining({
+        article_id: 4,
+        editor_username: "rogersop",
+        title: original.title,
+        topic: original.topic,
+        body: original.body,
+      })
+    );
+  });
+
+  test("article revision history is owner-only", async () => {
+    await request(app)
+      .get("/api/articles/1/revisions")
+      .set(auth("rogersop"))
+      .expect(403);
+  });
+
+  test("article updated_at changes when edited", async () => {
+    const before = await request(app).get("/api/articles/4").expect(200);
+
+    const after = await request(app)
+      .patch("/api/articles/4")
+      .set(auth("rogersop"))
+      .send({ body: "Edited article body for timestamp test" })
+      .expect(200);
+
+    expect(new Date(after.body.article.updated_at).getTime()).toBeGreaterThanOrEqual(
+      new Date(before.body.article[0].updated_at).getTime()
+    );
+  });
+});
+
 describe("comment editing", () => {
   test("comment owners can edit their own comment", async () => {
     const before = await request(app)

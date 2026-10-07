@@ -73,6 +73,26 @@ async function migrate() {
   `);
 
   await db.query(`
+    DO $
+    BEGIN
+      IF to_regclass('public.article_revisions') IS NULL THEN
+        CREATE TABLE article_revisions (
+          revision_id SERIAL PRIMARY KEY,
+          article_id INT NOT NULL REFERENCES articles(article_id) ON DELETE CASCADE,
+          editor_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE,
+          title VARCHAR NOT NULL,
+          topic VARCHAR NOT NULL,
+          body VARCHAR NOT NULL,
+          article_img_url VARCHAR,
+          status VARCHAR(20) NOT NULL,
+          created_at TIMESTAMP DEFAULT NOW()
+        );
+        UPDATE articles SET updated_at = created_at;
+      END IF;
+    END $;
+  `);
+
+  await db.query(`
     CREATE TABLE IF NOT EXISTS article_votes (
       username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE,
       article_id INT NOT NULL REFERENCES articles(article_id) ON DELETE CASCADE,
