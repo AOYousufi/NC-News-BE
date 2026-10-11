@@ -33,11 +33,14 @@ async function getNotifications(username, { unreadOnly = false } = {}) {
   }
 
   const { rows } = await db.query(
-    `SELECT n.notification_id, n.type, n.article_id, n.comment_id,
+    `SELECT n.notification_id, n.type,
+            CASE WHEN a.deleted_at IS NULL THEN n.article_id ELSE NULL END AS article_id,
+            n.comment_id,
             n.created_at, n.read_at,
             u.username AS actor_username, u.name AS actor_name,
             u.avatar_url AS actor_avatar_url,
-            a.title AS article_title
+            CASE WHEN a.deleted_at IS NULL THEN a.title ELSE NULL END AS article_title,
+            (a.article_id IS NOT NULL AND a.deleted_at IS NOT NULL) AS target_removed
      FROM notifications n
      JOIN users u ON u.username = n.actor_username
      LEFT JOIN articles a ON a.article_id = n.article_id

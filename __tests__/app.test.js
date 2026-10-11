@@ -1942,6 +1942,44 @@ describe("moderation analytics and audit history", () => {
     );
   });
 
+  test("moderation audit history survives moderator account deletion", async () => {
+    const created = await request(app)
+      .post("/api/reports")
+      .set(auth("butter_bridge"))
+      .send({
+        target_type: "article",
+        target_id: 4,
+        reason: "spam",
+      })
+      .expect(201);
+
+    await request(app)
+      .patch("/api/moderation/reports/" + created.body.report.report_id)
+      .set(auth("rogersop"))
+      .send({ status: "resolved" })
+      .expect(200);
+
+    await request(app)
+      .delete("/api/users/me")
+      .set(auth("rogersop"))
+      .send({
+        password: "password123",
+        confirmation: "rogersop",
+      })
+      .expect(204);
+
+    const { rows } = await db.query(
+      `SELECT moderator_username, action, details
+       FROM moderator_audit_log
+       WHERE details->>'report_id' = $1;`,
+      [String(created.body.report.report_id)]
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].moderator_username).toBeNull();
+    expect(rows[0].action).toBe("report_resolved");
+  });
+
   test("normal users cannot access analytics or audit history", async () => {
     await request(app)
       .get("/api/moderation/analytics")
@@ -2385,6 +2423,50 @@ describe("notifications", () => {
     expect(
       body.notifications.filter((item) => item.actor_username === "rogersop")
     ).toHaveLength(1);
+  });
+
+  test("notifications remain usable when their target article is later deleted", async () => {
+    const created = await request(app)
+      .post("/api/articles")
+      .set(auth("rogersop"))
+      .send({
+        title: "Notification deletion target",
+        topic: "cats",
+        body: "This will generate a notification before being removed.",
+      })
+      .expect(201);
+
+    const articleId = created.body.article.article_id;
+
+    await request(app)
+      .post("/api/articles/" + articleId + "/comments")
+      .set(auth("butter_bridge"))
+      .send({ body: "Notification before deletion" })
+      .expect(201);
+
+    await request(app)
+      .delete("/api/articles/" + articleId)
+      .set(auth("rogersop"))
+      .expect(204);
+
+    const list = await request(app)
+      .get("/api/users/me/notifications")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    const notification = list.body.notifications.find(
+      (item) =>
+        item.type === "article_comment" &&
+        item.actor_username === "butter_bridge"
+    );
+
+    expect(notification).toEqual(
+      expect.objectContaining({
+        article_id: null,
+        article_title: null,
+        target_removed: true,
+      })
+    );
   });
 
   test("users can mark one or all notifications as read", async () => {

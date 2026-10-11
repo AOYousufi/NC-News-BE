@@ -108,7 +108,7 @@ const seed = ({ topicData, userData, articleData, commentData }) => {
     )
     .then(() =>
       db.query(
-        "CREATE TABLE moderator_audit_log (audit_id SERIAL PRIMARY KEY, moderator_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE, action VARCHAR(60) NOT NULL, target_type VARCHAR(30) NOT NULL, target_id INT, details JSONB DEFAULT '{}'::jsonb, created_at TIMESTAMP DEFAULT NOW());"
+        "CREATE TABLE moderator_audit_log (audit_id SERIAL PRIMARY KEY, moderator_username VARCHAR REFERENCES users(username) ON DELETE SET NULL, action VARCHAR(60) NOT NULL, target_type VARCHAR(30) NOT NULL, target_id INT, details JSONB DEFAULT '{}'::jsonb, created_at TIMESTAMP DEFAULT NOW());"
       )
     )
     .then(() =>
