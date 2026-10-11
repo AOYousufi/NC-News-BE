@@ -152,7 +152,12 @@ async function getActivity(username) {
        (SELECT COUNT(*)::int FROM articles WHERE author = $1 AND status = 'published' AND deleted_at IS NULL) AS published_articles,
        (SELECT COUNT(*)::int FROM articles WHERE author = $1 AND status = 'draft' AND deleted_at IS NULL) AS drafts,
        (SELECT COUNT(*)::int FROM comments WHERE author = $1 AND deleted_at IS NULL) AS comments,
-       (SELECT COUNT(*)::int FROM saved_articles WHERE username = $1) AS saved_articles,
+       (SELECT COUNT(*)::int
+        FROM saved_articles sa
+        JOIN articles a ON a.article_id = sa.article_id
+        WHERE sa.username = $1
+          AND a.status = 'published'
+          AND a.deleted_at IS NULL) AS saved_articles,
        (SELECT COUNT(*)::int FROM user_follows WHERE follower_username = $1) AS following;`,
     [username]
   );

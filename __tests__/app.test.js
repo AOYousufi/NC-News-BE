@@ -1248,6 +1248,44 @@ describe("saved articles, follows, drafts, activity and replies", () => {
     );
   });
 
+  test("saved dashboard and moderation counts ignore soft-deleted articles", async () => {
+    const created = await request(app)
+      .post("/api/articles")
+      .set(auth("rogersop"))
+      .send({
+        title: "Saved count deletion target",
+        topic: "cats",
+        body: "This should not count after deletion.",
+      })
+      .expect(201);
+
+    const articleId = created.body.article.article_id;
+
+    await request(app)
+      .post("/api/articles/" + articleId + "/save")
+      .set(auth("butter_bridge"))
+      .expect(204);
+
+    await request(app)
+      .delete("/api/articles/" + articleId)
+      .set(auth("rogersop"))
+      .expect(204);
+
+    const activity = await request(app)
+      .get("/api/users/me/activity")
+      .set(auth("butter_bridge"))
+      .expect(200);
+
+    expect(activity.body.stats.saved_articles).toBe(0);
+
+    const analytics = await request(app)
+      .get("/api/moderation/analytics")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(analytics.body.analytics.counts.saved_articles).toBe(0);
+  });
+
   test("guests cannot use private dashboard/social endpoints", async () => {
     await request(app).get("/api/users/me/activity").expect(401);
     await request(app).get("/api/users/me/saved").expect(401);
@@ -1298,6 +1336,27 @@ describe("profile bio and pinned article", () => {
         pinned_article_title: expect.any(String),
       })
     );
+  });
+
+  test("soft-deleting a pinned article clears the profile pin", async () => {
+    await request(app)
+      .patch("/api/users/me")
+      .set(auth("rogersop"))
+      .send({ pinned_article_id: 4 })
+      .expect(200);
+
+    await request(app)
+      .delete("/api/articles/4")
+      .set(auth("rogersop"))
+      .expect(204);
+
+    const current = await request(app)
+      .get("/api/users/me")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(current.body.user.pinned_article_id).toBeNull();
+    expect(current.body.user.pinned_article_title).toBeNull();
   });
 
   test("users cannot pin another user's article and can clear their pin", async () => {
@@ -1397,6 +1456,66 @@ describe("article collections", () => {
       .expect(200);
 
     expect(renamed.body.collection.name).toBe("Backend deep dives");
+  });
+
+  test("collection counts and contents ignore soft-deleted articles", async () => {
+    const collection = await request(app)
+      .post("/api/collections")
+      .set(auth("rogersop"))
+      .send({ name: "Deletion-safe list" })
+      .expect(201);
+
+    const article = await request(app)
+      .post("/api/articles")
+      .set(auth("rogersop"))
+      .send({
+        title: "Collection deletion target",
+        topic: "cats",
+        body: "This story will be removed after being collected.",
+      })
+      .expect(201);
+
+    const collectionId = collection.body.collection.collection_id;
+    const articleId = article.body.article.article_id;
+
+    await request(app)
+      .post("/api/collections/" + collectionId + "/articles/" + articleId)
+      .set(auth("rogersop"))
+      .expect(204);
+
+    let list = await request(app)
+      .get("/api/collections")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(
+      list.body.collections.find(
+        (item) => item.collection_id === collectionId
+      ).article_count
+    ).toBe(1);
+
+    await request(app)
+      .delete("/api/articles/" + articleId)
+      .set(auth("rogersop"))
+      .expect(204);
+
+    list = await request(app)
+      .get("/api/collections")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(
+      list.body.collections.find(
+        (item) => item.collection_id === collectionId
+      ).article_count
+    ).toBe(0);
+
+    const detail = await request(app)
+      .get("/api/collections/" + collectionId)
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(detail.body.collection.articles).toHaveLength(0);
   });
 
   test("users can add and remove published articles from their collections", async () => {

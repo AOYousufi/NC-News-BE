@@ -46,7 +46,10 @@ async function getAdminAnalytics() {
        WHERE deleted_at IS NULL) AS comments,
       (SELECT COUNT(*)::int FROM reports
        WHERE status = 'open') AS open_reports,
-      (SELECT COUNT(*)::int FROM saved_articles) AS saved_articles,
+      (SELECT COUNT(*)::int
+       FROM saved_articles sa
+       JOIN articles a ON a.article_id = sa.article_id
+       WHERE a.status = 'published' AND a.deleted_at IS NULL) AS saved_articles,
       (SELECT COUNT(*)::int FROM user_follows) AS user_follows,
       (SELECT COUNT(*)::int FROM topic_follows) AS topic_follows,
       (SELECT COUNT(*)::int FROM collections) AS collections;`

@@ -50,9 +50,13 @@ async function ensureOwnedCollection(username, collectionIdInput) {
 async function listCollections(username) {
   const { rows } = await db.query(
     `SELECT c.collection_id, c.name, c.description, c.created_at, c.updated_at,
-            COUNT(ca.article_id)::int AS article_count
+            COUNT(a.article_id)::int AS article_count
      FROM collections c
      LEFT JOIN collection_articles ca ON ca.collection_id = c.collection_id
+     LEFT JOIN articles a
+       ON a.article_id = ca.article_id
+      AND a.status = 'published'
+      AND a.deleted_at IS NULL
      WHERE c.username = $1
      GROUP BY c.collection_id
      ORDER BY c.updated_at DESC, c.created_at DESC;`,
