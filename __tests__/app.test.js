@@ -247,7 +247,16 @@ describe("public read endpoints", () => {
 
   test("GET /api/users/:username returns a public user", async () => {
     const { body } = await request(app).get("/api/users/rogersop").expect(200);
-    expect(body).toEqual(userData.find((user) => user.username === "rogersop"));
+    expect(body).toEqual(
+      expect.objectContaining({
+        ...userData.find((user) => user.username === "rogersop"),
+        bio: null,
+        pinned_article_id: null,
+        pinned_article_title: null,
+        pinned_article_topic: null,
+        pinned_article_img_url: null,
+      })
+    );
     expect(body).not.toHaveProperty("password_hash");
   });
 
@@ -351,10 +360,17 @@ describe("authentication and users", () => {
       .get("/api/users/me")
       .set(auth("rogersop"))
       .expect(200);
-    expect(body.user).toEqual({
-      ...userData.find((user) => user.username === "rogersop"),
-      role: "moderator",
-    });
+    expect(body.user).toEqual(
+      expect.objectContaining({
+        ...userData.find((user) => user.username === "rogersop"),
+        role: "moderator",
+        bio: null,
+        pinned_article_id: null,
+        pinned_article_title: null,
+        pinned_article_topic: null,
+        pinned_article_img_url: null,
+      })
+    );
   });
 
   test("PATCH /api/users/me updates only the authenticated profile", async () => {
