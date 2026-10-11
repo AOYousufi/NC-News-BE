@@ -1684,6 +1684,52 @@ describe("comment voting", () => {
   });
 });
 
+describe("@mentions", () => {
+  test("comment mentions create mention notifications for existing users", async () => {
+    await request(app)
+      .post("/api/articles/1/comments")
+      .set(auth("rogersop"))
+      .send({ body: "Worth checking @icellusedkars" })
+      .expect(201);
+
+    const { body } = await request(app)
+      .get("/api/users/me/notifications")
+      .set(auth("icellusedkars"))
+      .expect(200);
+
+    expect(
+      body.notifications.some(
+        (notification) =>
+          notification.type === "mention" &&
+          notification.actor_username === "rogersop"
+      )
+    ).toBe(true);
+  });
+
+  test("mentions ignore unknown users, duplicates and self mentions", async () => {
+    await request(app)
+      .post("/api/articles/1/comments")
+      .set(auth("rogersop"))
+      .send({
+        body: "@rogersop @notrealuser @icellusedkars @icellusedkars",
+      })
+      .expect(201);
+
+    const notifications = await request(app)
+      .get("/api/users/me/notifications")
+      .set(auth("icellusedkars"))
+      .expect(200);
+
+    expect(
+      notifications.body.notifications.filter(
+        (notification) =>
+          notification.type === "mention" &&
+          notification.actor_username === "rogersop"
+      )
+    ).toHaveLength(1);
+  });
+});
+
 describe("notifications", () => {
   test("following a user creates an unread notification", async () => {
     await request(app)

@@ -1,6 +1,7 @@
 const db = require("../db/connection");
 const { parsePositiveId, badRequest } = require("../utils/validation");
 const { createNotification } = require("./notification.model");
+const { createMentionNotifications } = require("../utils/mentions");
 
 async function addComment(username, body, articleIdInput, parentCommentIdInput) {
   const articleId = parsePositiveId(articleIdInput);
@@ -67,6 +68,13 @@ async function addComment(username, body, articleIdInput, parentCommentIdInput) 
       commentId: comment.comment_id,
     });
   }
+
+  await createMentionNotifications({
+    body,
+    actor: username,
+    articleId,
+    commentId: comment.comment_id,
+  });
 
   return comment;
 }
