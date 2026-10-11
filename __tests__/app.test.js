@@ -1111,6 +1111,57 @@ describe("saved articles, follows, drafts, activity and replies", () => {
     await request(app).get("/api/articles/" + articleId).expect(200);
   });
 
+  test("soft-deleted articles reject new comments", async () => {
+    const created = await request(app)
+      .post("/api/articles")
+      .set(auth("rogersop"))
+      .send({
+        title: "Closed article",
+        topic: "cats",
+        body: "No new discussion after deletion.",
+      })
+      .expect(201);
+
+    const articleId = created.body.article.article_id;
+
+    await request(app)
+      .delete("/api/articles/" + articleId)
+      .set(auth("rogersop"))
+      .expect(204);
+
+    await request(app)
+      .post("/api/articles/" + articleId + "/comments")
+      .set(auth("butter_bridge"))
+      .send({ body: "This should not be accepted." })
+      .expect(404);
+  });
+
+  test("soft-deleted comment tombstones reject new replies", async () => {
+    const parent = await request(app)
+      .post("/api/articles/1/comments")
+      .set(auth("rogersop"))
+      .send({ body: "Temporary parent" })
+      .expect(201);
+
+    const parentId = parent.body.Comment.comment_id;
+
+    await request(app)
+      .delete("/api/comments/" + parentId)
+      .set(auth("rogersop"))
+      .expect(204);
+
+    const { body } = await request(app)
+      .post("/api/articles/1/comments")
+      .set(auth("butter_bridge"))
+      .send({
+        body: "Reply to deleted parent",
+        parent_comment_id: parentId,
+      })
+      .expect(404);
+
+    expect(body.msg).toBe("Parent comment not found");
+  });
+
   test("comments can reply to comments on the same article", async () => {
     const parent = await request(app)
       .post("/api/articles/1/comments")

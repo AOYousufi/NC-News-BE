@@ -7,7 +7,7 @@ async function addComment(username, body, articleIdInput, parentCommentIdInput) 
   const articleId = parsePositiveId(articleIdInput);
 
   const articleResult = await db.query(
-    "SELECT article_id, author FROM articles WHERE article_id = $1 AND status = 'published';",
+    "SELECT article_id, author FROM articles WHERE article_id = $1 AND status = 'published' AND deleted_at IS NULL;",
     [articleId]
   );
 
@@ -24,7 +24,8 @@ async function addComment(username, body, articleIdInput, parentCommentIdInput) 
     const parentResult = await db.query(
       `SELECT comment_id, article_id, author
        FROM comments
-       WHERE comment_id = $1;`,
+       WHERE comment_id = $1
+         AND deleted_at IS NULL;`,
       [parentCommentId]
     );
 
