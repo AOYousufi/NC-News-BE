@@ -862,6 +862,120 @@ describe("saved articles, follows, drafts, activity and replies", () => {
     expect(after.body.articles).toHaveLength(0);
   });
 
+  test("soft-deleted articles disappear from saved, drafts, managed views and cannot be saved again", async () => {
+    const published = await request(app)
+      .post("/api/articles")
+      .set(auth("rogersop"))
+      .send({
+        title: "Saved then removed",
+        topic: "cats",
+        body: "This should vanish from private reading surfaces after deletion.",
+      })
+      .expect(201);
+
+    const publishedId = published.body.article.article_id;
+
+    await request(app)
+      .post("/api/articles/" + publishedId + "/save")
+      .set(auth("butter_bridge"))
+      .expect(204);
+
+    await request(app)
+      .delete("/api/articles/" + publishedId)
+      .set(auth("rogersop"))
+      .expect(204);
+
+    const saved = await request(app)
+      .get("/api/users/me/saved")
+      .set(auth("butter_bridge"))
+      .expect(200);
+
+    expect(
+      saved.body.articles.some((article) => article.article_id === publishedId)
+    ).toBe(false);
+
+    await request(app)
+      .post("/api/articles/" + publishedId + "/save")
+      .set(auth("butter_bridge"))
+      .expect(404);
+
+    const draft = await request(app)
+      .post("/api/articles")
+      .set(auth("rogersop"))
+      .send({
+        title: "Draft then removed",
+        topic: "cats",
+        body: "Deleted drafts should not remain manageable.",
+        status: "draft",
+      })
+      .expect(201);
+
+    const draftId = draft.body.article.article_id;
+
+    await request(app)
+      .delete("/api/articles/" + draftId)
+      .set(auth("rogersop"))
+      .expect(204);
+
+    const drafts = await request(app)
+      .get("/api/articles/drafts")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(
+      drafts.body.articles.some((article) => article.article_id === draftId)
+    ).toBe(false);
+
+    await request(app)
+      .get("/api/articles/" + draftId + "/manage")
+      .set(auth("rogersop"))
+      .expect(404);
+  });
+
+  test("activity excludes soft-deleted articles and comments", async () => {
+    const article = await request(app)
+      .post("/api/articles")
+      .set(auth("rogersop"))
+      .send({
+        title: "Activity deletion check",
+        topic: "cats",
+        body: "This activity item should disappear after deletion.",
+      })
+      .expect(201);
+
+    const comment = await request(app)
+      .post("/api/articles/1/comments")
+      .set(auth("rogersop"))
+      .send({ body: "Deleted activity comment marker" })
+      .expect(201);
+
+    await request(app)
+      .delete("/api/articles/" + article.body.article.article_id)
+      .set(auth("rogersop"))
+      .expect(204);
+
+    await request(app)
+      .delete("/api/comments/" + comment.body.Comment.comment_id)
+      .set(auth("rogersop"))
+      .expect(204);
+
+    const activity = await request(app)
+      .get("/api/users/me/activity")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(
+      activity.body.activity.some(
+        (item) => item.label === "Activity deletion check"
+      )
+    ).toBe(false);
+    expect(
+      activity.body.activity.some(
+        (item) => item.label === "Deleted activity comment marker"
+      )
+    ).toBe(false);
+  });
+
   test("users can follow and unfollow another user and the feed only contains followed authors", async () => {
     await request(app)
       .post("/api/users/butter_bridge/follow")

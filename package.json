@@ -10,7 +10,6 @@
     "prepare": "husky install",
     "app-test": "jest ./__tests__/app.test.js",
     "start": "node listen.js",
-    "seed-prod": "NODE_ENV=production npm run seed",
     "dev": "nodemon listen.js",
     "migrate": "node ./db/migrate.js",
     "demo:reset": "npm run setup-dbs && npm run seed"

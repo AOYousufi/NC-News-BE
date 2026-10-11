@@ -6,7 +6,7 @@ const { createNotification } = require("./notification.model");
 async function ensurePublishedArticle(articleIdInput) {
   const articleId = parsePositiveId(articleIdInput);
   const { rows } = await db.query(
-    "SELECT article_id FROM articles WHERE article_id = $1 AND status = 'published';",
+    "SELECT article_id FROM articles WHERE article_id = $1 AND status = 'published' AND deleted_at IS NULL;",
     [articleId]
   );
 
@@ -39,8 +39,8 @@ async function getSavedArticles(username) {
             sa.saved_at
      FROM saved_articles sa
      JOIN articles a ON a.article_id = sa.article_id
-     LEFT JOIN comments c ON c.article_id = a.article_id
-     WHERE sa.username = $1 AND a.status = 'published'
+     LEFT JOIN comments c ON c.article_id = a.article_id AND c.deleted_at IS NULL
+     WHERE sa.username = $1 AND a.status = 'published' AND a.deleted_at IS NULL
      GROUP BY a.article_id, sa.saved_at
      ORDER BY sa.saved_at DESC;`,
     [username]
@@ -149,9 +149,9 @@ async function getFollowingFeed(username, { limit = 20, page = 1 } = {}) {
 async function getActivity(username) {
   const statsResult = await db.query(
     `SELECT
-       (SELECT COUNT(*)::int FROM articles WHERE author = $1 AND status = 'published') AS published_articles,
-       (SELECT COUNT(*)::int FROM articles WHERE author = $1 AND status = 'draft') AS drafts,
-       (SELECT COUNT(*)::int FROM comments WHERE author = $1) AS comments,
+       (SELECT COUNT(*)::int FROM articles WHERE author = $1 AND status = 'published' AND deleted_at IS NULL) AS published_articles,
+       (SELECT COUNT(*)::int FROM articles WHERE author = $1 AND status = 'draft' AND deleted_at IS NULL) AS drafts,
+       (SELECT COUNT(*)::int FROM comments WHERE author = $1 AND deleted_at IS NULL) AS comments,
        (SELECT COUNT(*)::int FROM saved_articles WHERE username = $1) AS saved_articles,
        (SELECT COUNT(*)::int FROM user_follows WHERE follower_username = $1) AS following;`,
     [username]
@@ -162,19 +162,19 @@ async function getActivity(username) {
        SELECT 'article' AS type, article_id AS resource_id, title AS label,
               created_at AS occurred_at, NULL::varchar AS secondary
        FROM articles
-       WHERE author = $1
+       WHERE author = $1 AND deleted_at IS NULL
        UNION ALL
        SELECT 'comment' AS type, comment_id AS resource_id,
               LEFT(body, 120) AS label, created_at AS occurred_at,
               article_id::varchar AS secondary
        FROM comments
-       WHERE author = $1
+       WHERE author = $1 AND deleted_at IS NULL
        UNION ALL
        SELECT 'saved' AS type, sa.article_id AS resource_id,
               a.title AS label, sa.saved_at AS occurred_at, a.author AS secondary
        FROM saved_articles sa
        JOIN articles a ON a.article_id = sa.article_id
-       WHERE sa.username = $1
+       WHERE sa.username = $1 AND a.deleted_at IS NULL
        UNION ALL
        SELECT 'follow' AS type, 0 AS resource_id,
               followed_username AS label, created_at AS occurred_at,
@@ -195,7 +195,7 @@ async function getDrafts(username) {
     `SELECT article_id, title, topic, author, body, created_at, updated_at,
             votes, article_img_url, status
      FROM articles
-     WHERE author = $1 AND status = 'draft'
+     WHERE author = $1 AND status = 'draft' AND deleted_at IS NULL
      ORDER BY updated_at DESC, created_at DESC;`,
     [username]
   );
@@ -208,7 +208,7 @@ async function getManagedArticle(username, articleIdInput) {
     `SELECT a.*, COUNT(c.comment_id)::int AS comment_count
      FROM articles a
      LEFT JOIN comments c ON c.article_id = a.article_id
-     WHERE a.article_id = $1 AND a.author = $2
+     WHERE a.article_id = $1 AND a.author = $2 AND a.deleted_at IS NULL
      GROUP BY a.article_id;`,
     [articleId, username]
   );
