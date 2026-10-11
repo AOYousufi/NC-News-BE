@@ -1,38 +1,51 @@
 # NC News Demo Workflow
 
-This workflow is for local development and portfolio demonstrations. It does not create or publish shared production credentials.
+Use this flow for portfolio/interview demonstrations.
 
-## Reset demo data
-
-From the backend repository run:
+## Local reset
 
 ```bash
 npm run demo:reset
 ```
 
-This recreates the local development databases and loads the standard NC News seed dataset.
+This is development-only. Never run destructive seeding against production.
 
-Use the development-only credentials defined by the seed setup when demonstrating authenticated features. Never copy a shared demo password into production.
+## Suggested demo
 
-## Suggested portfolio demo
+1. Open Home and show Hot stories + trending topics.
+2. Open Articles and demonstrate search, date filtering, sorting and pagination.
+3. Sign in with a local seeded account.
+4. Follow a writer and a topic, then open the personalised Following feed.
+5. Create a private draft, close/reopen the editor, show local autosave recovery, preview it and publish it.
+6. Open another user's story and demonstrate:
+   - Agree/Disagree switching
+   - Insightful/Useful/Funny reactions
+   - bookmarking
+   - adding to a named Collection
+   - reading progress
+   - "More like this" recommendations
+7. Add a comment, reply in a thread, mention another user with `@username`, vote on a comment and collapse/expand replies.
+8. Open Notifications and show the mention/reply/follow state.
+9. Open a public profile and show stats, bio, contribution tabs and featured story.
+10. Edit one of your articles and show revision history.
+11. Show Dashboard activity, Saved articles, drafts, followed writers and collections.
+12. Report an article/comment.
+13. Sign in as a moderator and show:
+    - report queue
+    - analytics
+    - audit history
+14. Show `/healthz`, `/readyz`, rate limiting, request IDs and CI.
+15. Explain that identity/ownership are enforced by the API, not by hidden React buttons.
 
-1. Show the public feed, search, topics, sorting and pagination.
-2. Sign in with a local seeded account.
-3. Create a private draft, reopen it from Dashboard and publish it.
-4. Open another user's article and demonstrate persistent voting.
-5. Save the article and show it in Dashboard.
-6. Follow the author and open the personalised Following feed.
-7. Add a comment, reply to a comment and demonstrate comment voting and editing.
-8. Show Notifications and mark an item read.
-9. Open a public profile and show contribution stats and tabs.
-10. Edit an owned article and show revision history.
-11. Explain that ownership is enforced by the API rather than only hidden frontend controls.
-12. Show health endpoints, CI and versioned migrations as production-quality engineering features.
+## Engineering talking points
 
-## Production rule
+Useful interview topics:
 
-Do not run destructive seed commands against production. Production schema changes use:
-
-```bash
-npm run migrate
-```
+- transactional per-user voting
+- idempotent migrations
+- soft deletion and thread preservation
+- server-side ownership checks
+- relational modelling for collections/follows/reactions
+- PostgreSQL-based recommendation/trending logic
+- request tracing and readiness checks
+- browser E2E, accessibility and performance gates on the frontend

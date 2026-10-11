@@ -1,16 +1,12 @@
 # NC News - Backend API
 
-A RESTful news API built with **Node.js**, **Express** and **PostgreSQL** during the Northcoders Full-Stack Software Development bootcamp.
-
-The API supports articles, comments, topics and users, with public read access and simple authenticated write access.
+NC News is a full-stack community news platform backed by **Node.js**, **Express** and **PostgreSQL**. It began as a Northcoders API project and has since been extended into a portfolio-grade social publishing backend with authentication, ownership, discovery, moderation and production hardening.
 
 ## Links
 
 - **Live API:** https://nc-news-vvdv.onrender.com/api
 - **Frontend:** https://nc-news-sultan.netlify.app/
 - **Frontend repo:** https://github.com/AOYousufi/NC-news-FE
-
-> Render's free tier may take a short while to wake up on the first request.
 
 ## Tech stack
 
@@ -19,93 +15,161 @@ The API supports articles, comments, topics and users, with public read access a
 | Runtime | Node.js |
 | Framework | Express.js |
 | Database | PostgreSQL |
-| Database client | pg (node-postgres) |
+| Database client | pg / node-postgres |
 | Password hashing | Node.js crypto / scrypt |
 | Authentication | Signed HS256 bearer tokens |
-| Testing | Jest + Supertest |
+| Testing | Jest + Supertest + PostgreSQL |
+| CI | GitHub Actions |
+| Hosting | Render |
+
+## Product capabilities
+
+### Accounts and profiles
+
+- registration/login with password hashing
+- session restoration through bearer tokens
+- profile editing with display name, avatar and bio
+- pinned/featured article on public profiles
+- password changes and account deletion
+- public contribution statistics and activity tabs
+
+### Publishing
+
+- create, edit and publish articles
+- private drafts
+- revision history
+- ownership enforced in the API
+- soft deletion so removed content disappears publicly without destroying moderation/history data
+- reading-time and editor-preview support on the frontend
+
+### Voting and reactions
+
+- persistent per-user Agree/Disagree voting
+- instant vote switching/removal
+- self-voting blocked
+- article reactions: **Insightful**, **Useful** and **Funny**
+- one active reaction per user/article, with switching/removal
+- persistent comment voting
+
+### Discussion
+
+- comments and threaded replies
+- comment editing
+- soft-deleted comment tombstones so reply trees remain intact
+- @mentions that generate in-app notifications
+- ownership checks on edits/deletes
+
+### Discovery
+
+- search across article title/body/author
+- topic, author and date-range filtering
+- sorting + pagination metadata
+- Hot/Trending article ranking using votes, comments and freshness
+- trending topics
+- "More like this" recommendations
+- user follows
+- topic follows
+- personalised feed from followed writers **and** topics
+
+### Reading lists
+
+- simple Saved/bookmark state
+- private named collections
+- create/rename/delete collections
+- add/remove published articles from collections
+
+### Notifications
+
+- follow notifications
+- comment/reply notifications
+- article vote notifications
+- @mention notifications
+- unread count
+- mark one/all as read
+
+### Moderation
+
+- report articles/comments
+- moderator role
+- moderation queue
+- resolve/dismiss reports
+- platform analytics
+- moderator audit history
 
 ## Access model
 
-Guests are read-only. Public endpoints include articles, article comments, topics and public user profiles.
-
-Registered users can log in and use protected write endpoints. Send the token returned by registration/login as:
+Guests are read-only. Protected actions require:
 
 ```text
 Authorization: Bearer <token>
 ```
 
-Protected actions currently include:
+Authorship and ownership come from the authenticated token. The API never trusts a client-supplied username for protected mutations.
 
-- saving/bookmarking articles
-- following users and reading a personalised feed
-- managing private article drafts
-- viewing a private activity dashboard
-
-- creating articles
-- editing your own articles
-- deleting your own articles
-- posting comments and threaded replies
-- voting on other users' articles with one stored vote per user
-- creating new topics
-- deleting your own comments
-- reading/updating your own profile
-
-A user cannot delete another user's article or comment. Article and comment authorship are derived from the authenticated token rather than trusting a username sent by the client.
-
-Article creation accepts `title`, `topic`, `body` and an optional `article_img_url`. Existing vote updates remain compatible with `PATCH /api/articles/:article_id` using only `{ "inc_votes": 1 }`. Owner content edits use the same route with one or more of `title`, `topic`, `body` and `article_img_url`; mixing vote and content fields is rejected. Deleting an article also removes its comments in the same transaction.
-
-## Main endpoints
+## Important endpoint groups
 
 | Method | Endpoint | Access |
 |---|---|---|
-| GET | `/api` | Public |
-| GET | `/api/topics` | Public |
 | GET | `/api/articles` | Public |
+| GET | `/api/articles/trending` | Public |
 | GET | `/api/articles/feed` | Authenticated |
 | GET | `/api/articles/drafts` | Authenticated |
 | POST | `/api/articles` | Authenticated |
 | GET | `/api/articles/:article_id` | Public |
+| GET | `/api/articles/:article_id/recommendations` | Public |
+| GET | `/api/articles/:article_id/reactions` | Public |
+| GET/PATCH | `/api/articles/:article_id/reaction` | Authenticated |
 | GET | `/api/articles/:article_id/comments` | Public |
 | POST | `/api/articles/:article_id/comments` | Authenticated |
-| PATCH | `/api/articles/:article_id` | Authenticated / owner for content edits |
+| PATCH | `/api/articles/:article_id` | Authenticated |
 | DELETE | `/api/articles/:article_id` | Owner only |
+| PATCH | `/api/comments/:comment_id` | Owner only |
 | DELETE | `/api/comments/:comment_id` | Owner only |
-| GET | `/api/users` | Public |
+| GET | `/api/topics/trending` | Public |
+| POST/DELETE | `/api/topics/:slug/follow` | Authenticated |
+| GET | `/api/collections` | Authenticated |
+| POST | `/api/collections` | Authenticated |
+| GET/PATCH/DELETE | `/api/collections/:collection_id` | Owner only |
 | GET | `/api/users/:username` | Public |
-| POST | `/api/users/register` | Public |
-| POST | `/api/users/signup` | Public compatibility alias |
-| POST | `/api/users/login` | Public |
-| GET | `/api/users/me` | Authenticated |
+| GET/PATCH | `/api/users/me` | Authenticated |
 | GET | `/api/users/me/activity` | Authenticated |
-| GET | `/api/users/me/saved` | Authenticated |
-| GET | `/api/users/me/following` | Authenticated |
-| PATCH | `/api/users/me` | Authenticated |
+| GET | `/api/users/me/notifications` | Authenticated |
+| GET | `/api/moderation/analytics` | Moderator only |
+| GET | `/api/moderation/audit` | Moderator only |
 
-`GET /api/articles` supports `topic`, `author`, `sort_by`, `order`, and optional `limit`/`p` pagination. Authenticated users can create topics with `POST /api/topics`. Voting uses `PATCH /api/articles/:article_id` with `{ "inc_votes": 1 }` or `{ "inc_votes": -1 }`; the API stores one vote state per user, supports switching/toggling without duplicate votes, and blocks self-voting. `GET /api/articles/:article_id/vote` restores the signed-in user's current vote state. Pagination is only applied when `limit` or `p` is supplied, so the previous default frontend behaviour is preserved.
+`GET /api/articles` supports `topic`, `author`, `search`, `date_from`, `date_to`, `sort_by`, `order`, `limit` and `p`.
 
-## Frontend integration changes
+## Deletion semantics
 
-The existing public GET response shapes are preserved. The frontend needs changes only around authenticated functionality:
+Article and comment deletion is intentionally non-destructive:
 
-- registration/signup now requires a password
-- registration and login return a `token`
-- protected requests must include the bearer token
-- posting comments no longer needs to trust/send a username for authorship
-- voting requires login
-- article creation uses the authenticated user as author
-- article content edits and deletion require article ownership
-- comment deletion requires login and ownership
-- API error responses use `{ "msg": "..." }` consistently
-- successful article vote updates now use HTTP `200`
+- deleting an article sets `deleted_at`; public reads no longer return it
+- deleting a comment replaces the visible body with `[deleted]` and preserves the reply tree
+- moderation/report history can still reference the underlying records
 
-`FRONTEND_INTEGRATION.md` is intentionally ignored by Git so a detailed local migration checklist can be maintained without publishing it.
+## Reliability and production hardening
 
-## Engineering docs
+- `/healthz` reports process health
+- `/readyz` verifies PostgreSQL connectivity
+- every request receives an `X-Request-Id`
+- structured JSON request logging
+- authentication/write rate limiting
+- parameterised SQL
+- explicit ownership checks
+- versioned migrations via `schema_migrations`
+- migrations run twice in CI to prove idempotency
+- destructive seeding is restricted to development/test workflows
 
-- Architecture and data-flow guide: `docs/ARCHITECTURE.md`
-- Portfolio/demo walkthrough: `docs/DEMO.md`
+## CI
 
-The API also exposes `/healthz` for process health and `/readyz` for database readiness. Production migrations are version-tracked in `schema_migrations`.
+The backend workflow runs on Node 24 and PostgreSQL 16:
+
+1. `npm ci`
+2. database setup
+3. development seed
+4. migrations
+5. migrations again to verify idempotency
+6. full Jest/Supertest suite against PostgreSQL
 
 ## Local setup
 
@@ -126,7 +190,7 @@ Create `.env.test`:
 
 ```text
 PGDATABASE=nc_news_test
-JWT_SECRET=test-secret-if-you-want-to-override-the-built-in-test-value
+JWT_SECRET=test-secret
 ```
 
 Then run:
@@ -138,33 +202,28 @@ npm run migrate
 npm test
 ```
 
-Seeded development/test users use `password123` so authentication can be tested locally. This is development seed data only and must not be used as a real production password.
+For a local portfolio reset:
 
-Existing users in a pre-auth production database are migrated as locked legacy accounts rather than being assigned a shared password. New accounts should be created through the registration endpoint.
-
-For Render/production, configure `DATABASE_URL` and `JWT_SECRET` as environment variables.
-
-## Error handling
-
-Expected API failures return a consistent JSON body:
-
-```json
-{ "msg": "Bad Request" }
+```bash
+npm run demo:reset
 ```
 
-The API handles malformed identifiers, invalid query values, missing resources, authentication failures, ownership failures, PostgreSQL constraint errors, unknown routes and unexpected server errors without exposing stack traces to clients.
+Never run the destructive seed workflow against production.
 
-## Requirements
+## Production
 
-- Node.js v18+
-- PostgreSQL v14+
+Render/production must provide:
 
-Built as part of the Northcoders Full-Stack Software Development bootcamp.
+- `DATABASE_URL`
+- `JWT_SECRET`
 
-## Product features
+Production schema changes use only:
 
-The API now supports private draft articles, saved/bookmarked articles, user following with a personalised feed, threaded comment replies via `parent_comment_id`, and a private activity dashboard. Public article queries exclude drafts. Drafts can only be retrieved through authenticated owner endpoints until published.
+```bash
+npm run migrate
+```
 
-## Demo reset
+## Engineering docs
 
-For local portfolio demonstrations, `npm run demo:reset` recreates and reseeds the development databases. Do not use destructive seed commands against production.
+- [Architecture](docs/ARCHITECTURE.md)
+- [Demo workflow](docs/DEMO.md)

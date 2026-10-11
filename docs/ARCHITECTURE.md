@@ -2,70 +2,147 @@
 
 ## Overview
 
-NC News is a React client backed by a Node.js and Express REST API with PostgreSQL.
-
 ```text
-Browser / React
-      |
-      | HTTPS + bearer token
-      v
+React / Vite client
+        |
+        | HTTPS + bearer token
+        v
 Express API on Render
-      |
-      | parameterised SQL
-      v
+        |
+        | parameterised SQL
+        v
 PostgreSQL
 ```
 
-The frontend is deployed separately on Netlify. Public reads do not require authentication. Protected writes use a signed bearer token issued by the API.
+The frontend and backend deploy independently. Guests use public read endpoints; authenticated writes are protected by a signed token and server-side ownership checks.
 
 ## Backend layers
 
-- Routes map HTTP methods and paths.
-- Controllers translate HTTP input and output.
-- Models contain database queries and transactional rules.
-- Middleware handles authentication, rate limiting and request logging.
-- Migrations evolve production schema without destructive reseeding.
-- Tests exercise the HTTP contract against PostgreSQL.
+- **Routes** define the HTTP contract.
+- **Controllers** validate/translate HTTP input and output.
+- **Models** own SQL, transactions and data-integrity rules.
+- **Middleware** handles authentication, moderator access, rate limiting and request logging.
+- **Migrations** evolve production schema without destructive reseeding.
+- **Tests** exercise the HTTP contract against PostgreSQL.
 
-## Main data relationships
+## Core data model
 
 ```text
 users
   |--< articles
   |--< comments
-  |--< saved_articles >-- articles
   |--< article_votes >-- articles
+  |--< article_reactions >-- articles
   |--< comment_votes >-- comments
+  |--< saved_articles >-- articles
   |--< user_follows >-- users
+  |--< topic_follows >-- topics
+  |--< collections
+  |      |--< collection_articles >-- articles
   |--< notifications
   |--< reports
+  |--< moderator_audit_log
 
 articles
   |--< comments
+  |      |--< comments (parent_comment_id)
   |--< article_revisions
-
-comments
-  |--< comments (parent_comment_id)
 ```
+
+Users can also reference one `pinned_article_id` as a featured public story.
 
 ## Authentication and ownership
 
-Passwords are stored using scrypt-derived hashes. Tokens identify the user through the token subject; write endpoints do not trust a username supplied by the browser.
+Passwords use scrypt-derived hashes. Tokens identify the user through the token subject.
 
-Ownership rules are enforced in the API for articles, comments, drafts, revisions and account operations. Frontend button visibility is only UX and is not treated as authorization.
+Protected mutations derive identity from `req.user.username`. Article ownership, comment ownership, collection ownership, draft privacy and account operations are enforced in the API. Hiding a frontend control is never treated as authorisation.
 
-## Product flows
+## Publishing lifecycle
 
-Publishing supports private drafts, publication, editing, revision history and owner deletion. Discussion supports threaded replies, comment editing and per-user voting. Social features include follows, a following feed, bookmarks, activity, notifications and public profile contribution stats.
+Articles can be:
+
+- private drafts
+- published
+- revised
+- soft-deleted
+
+Edits create revision history. Soft deletion hides an article publicly without destroying related moderation/history data.
+
+Comments support nested replies. Soft-deleted comments become tombstones so descendants are not orphaned.
+
+## Discovery
+
+NC News deliberately keeps discovery inside PostgreSQL:
+
+- text search using `ILIKE`
+- topic/author/date filters
+- Hot ranking using votes, discussion and recency
+- trending topic ranking
+- recommendation scoring using topic, author and engagement
+- personalised feeds using user follows + topic follows
+
+No recommendation/search SaaS is required.
+
+## Social state
+
+Persistent join tables model:
+
+- article votes
+- article reactions
+- comment votes
+- bookmarks
+- named collections
+- user follows
+- topic follows
+
+This prevents refresh-based duplicate actions and keeps user state consistent across devices.
+
+## Notifications
+
+Notifications are stored in PostgreSQL and currently cover:
+
+- follows
+- article comments
+- replies
+- article vote events
+- @mentions
+
+The UI reads unread counts and can mark individual/all notifications as read.
+
+## Moderation
+
+Users can report public articles/comments. Moderators can:
+
+- review the report queue
+- resolve/dismiss reports
+- view platform analytics
+- view an immutable moderation action trail
+
+Review decisions write to `moderator_audit_log`.
 
 ## Reliability and operations
 
-- `/healthz` reports process health.
-- `/readyz` verifies PostgreSQL connectivity.
-- Requests receive an `X-Request-Id` and structured JSON request logs.
-- Authentication endpoints and write operations are rate limited.
-- Production schema changes are tracked in `schema_migrations`.
-- GitHub Actions seeds PostgreSQL, executes migrations twice to verify idempotency, then runs Jest and Supertest.
+- `/healthz`: process health
+- `/readyz`: PostgreSQL readiness
+- `X-Request-Id`: request correlation
+- structured request logs
+- rate limiting
+- consistent JSON error handling
+- versioned `schema_migrations`
+- migration idempotency checked in CI
+
+## CI
+
+```text
+GitHub push
+   |
+   +--> PostgreSQL service
+   +--> npm ci
+   +--> setup + seed
+   +--> migrate
+   +--> migrate again
+   +--> Jest/Supertest
+```
 
 ## Deployment
 
