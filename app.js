@@ -6,6 +6,7 @@ const topicRouter = require("./routes/topics");
 const commentRouter = require("./routes/comments");
 const reportRouter = require("./routes/reports");
 const moderationRouter = require("./routes/moderation");
+const collectionRouter = require("./routes/collections");
 const getAllApi = require("./Controllers/getAPI.controller.js");
 const { health, readiness } = require("./Controllers/health.controller");
 const requestLogger = require("./middleware/requestLogger");
@@ -39,6 +40,7 @@ app.use("/api/topics", topicRouter);
 app.use("/api/comments", commentRouter);
 app.use("/api/reports", reportRouter);
 app.use("/api/moderation", moderationRouter);
+app.use("/api/collections", collectionRouter);
 
 app.use(routeNotFound);
 app.use(handleCustomErrors);

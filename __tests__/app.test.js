@@ -1047,6 +1047,117 @@ describe("public profile stats", () => {
   });
 });
 
+describe("article collections", () => {
+  test("users can create, list and rename private collections", async () => {
+    const created = await request(app)
+      .post("/api/collections")
+      .set(auth("rogersop"))
+      .send({ name: "Backend", description: "Things to read later" })
+      .expect(201);
+
+    expect(created.body.collection).toEqual(
+      expect.objectContaining({
+        collection_id: expect.any(Number),
+        name: "Backend",
+        description: "Things to read later",
+        article_count: 0,
+      })
+    );
+
+    const collectionId = created.body.collection.collection_id;
+
+    const list = await request(app)
+      .get("/api/collections")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(list.body.collections).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ collection_id: collectionId, name: "Backend" }),
+      ])
+    );
+
+    const renamed = await request(app)
+      .patch("/api/collections/" + collectionId)
+      .set(auth("rogersop"))
+      .send({ name: "Backend deep dives" })
+      .expect(200);
+
+    expect(renamed.body.collection.name).toBe("Backend deep dives");
+  });
+
+  test("users can add and remove published articles from their collections", async () => {
+    const created = await request(app)
+      .post("/api/collections")
+      .set(auth("rogersop"))
+      .send({ name: "Read later" })
+      .expect(201);
+
+    const collectionId = created.body.collection.collection_id;
+
+    await request(app)
+      .post("/api/collections/" + collectionId + "/articles/1")
+      .set(auth("rogersop"))
+      .expect(204);
+
+    const collection = await request(app)
+      .get("/api/collections/" + collectionId)
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(collection.body.collection.articles).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ article_id: 1, title: expect.any(String) }),
+      ])
+    );
+
+    await request(app)
+      .delete("/api/collections/" + collectionId + "/articles/1")
+      .set(auth("rogersop"))
+      .expect(204);
+
+    const after = await request(app)
+      .get("/api/collections/" + collectionId)
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(after.body.collection.articles).toHaveLength(0);
+  });
+
+  test("collections are private to their owner", async () => {
+    const created = await request(app)
+      .post("/api/collections")
+      .set(auth("rogersop"))
+      .send({ name: "Private list" })
+      .expect(201);
+
+    await request(app)
+      .get("/api/collections/" + created.body.collection.collection_id)
+      .set(auth("butter_bridge"))
+      .expect(404);
+  });
+
+  test("collection names are unique per user and validate input", async () => {
+    await request(app)
+      .post("/api/collections")
+      .set(auth("rogersop"))
+      .send({ name: "Unique" })
+      .expect(201);
+
+    await request(app)
+      .post("/api/collections")
+      .set(auth("rogersop"))
+      .send({ name: "Unique" })
+      .expect(409);
+
+    await request(app)
+      .post("/api/collections")
+      .set(auth("rogersop"))
+      .send({ name: "" })
+      .expect(400);
+  });
+});
+
 describe("discovery and topic following", () => {
   test("GET /api/articles/trending returns published articles with hot scores", async () => {
     const { body } = await request(app)
