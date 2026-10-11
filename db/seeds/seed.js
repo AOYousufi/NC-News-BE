@@ -23,6 +23,11 @@ const seed = ({ topicData, userData, articleData, commentData }) => {
     .then(() => db.query("DROP TABLE IF EXISTS comment_votes;"))
     .then(() => db.query("DROP TABLE IF EXISTS article_votes;"))
     .then(() => db.query("DROP TABLE IF EXISTS comments;"))
+    .then(() =>
+      db.query(
+        "ALTER TABLE IF EXISTS users DROP CONSTRAINT IF EXISTS users_pinned_article_id_fkey;"
+      )
+    )
     .then(() => db.query("DROP TABLE IF EXISTS articles;"))
     .then(() => db.query("DROP TABLE IF EXISTS users;"))
     .then(() => db.query("DROP TABLE IF EXISTS topics;"))
