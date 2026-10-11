@@ -120,10 +120,23 @@ async function getFollowingFeed(username, { limit = 20, page = 1 } = {}) {
   const { rows } = await db.query(
     `SELECT a.author, a.title, a.article_id, a.topic, a.created_at, a.updated_at,
             a.votes, a.article_img_url, COUNT(c.comment_id)::int AS comment_count
-     FROM user_follows f
-     JOIN articles a ON a.author = f.followed_username
-     LEFT JOIN comments c ON c.article_id = a.article_id
-     WHERE f.follower_username = $1 AND a.status = 'published'
+     FROM articles a
+     LEFT JOIN comments c
+       ON c.article_id = a.article_id AND c.deleted_at IS NULL
+     WHERE a.status = 'published'
+       AND a.deleted_at IS NULL
+       AND (
+         EXISTS (
+           SELECT 1 FROM user_follows f
+           WHERE f.follower_username = $1
+             AND f.followed_username = a.author
+         )
+         OR EXISTS (
+           SELECT 1 FROM topic_follows tf
+           WHERE tf.username = $1
+             AND tf.topic_slug = a.topic
+         )
+       )
      GROUP BY a.article_id
      ORDER BY a.created_at DESC
      LIMIT $2 OFFSET $3;`,

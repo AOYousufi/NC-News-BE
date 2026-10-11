@@ -18,6 +18,7 @@ const {
   readAllNotifications,
   readNotification,
 } = require("../Controllers/notification.controller");
+const { followedTopics } = require("../Controllers/discovery.controller");
 const {
   followUserController,
   getActivityController,
@@ -41,6 +42,7 @@ router.delete("/me", authenticateUser, deleteAccount);
 router.get("/me/activity", authenticateUser, getActivityController);
 router.get("/me/saved", authenticateUser, getSavedArticlesController);
 router.get("/me/following", authenticateUser, getFollowingController);
+router.get("/me/topics", authenticateUser, followedTopics);
 router.get("/me/notifications", authenticateUser, listNotifications);
 router.get("/me/notifications/count", authenticateUser, getNotificationCount);
 router.patch(

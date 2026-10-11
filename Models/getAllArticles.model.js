@@ -20,6 +20,18 @@ function validateFilter(value, field) {
   return value.trim();
 }
 
+function validateDate(value, field) {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw badRequest("Invalid " + field + " value");
+  }
+  const date = new Date(value + "T00:00:00.000Z");
+  if (Number.isNaN(date.getTime())) {
+    throw badRequest("Invalid " + field + " value");
+  }
+  return value;
+}
+
 function validateSearch(value) {
   if (value === undefined) return undefined;
   if (typeof value !== "string") throw badRequest("Invalid search value");
@@ -59,6 +71,11 @@ async function fetchAllArticles(options = {}) {
   const topic = validateFilter(options.topic, "topic");
   const author = validateFilter(options.author, "author");
   const search = validateSearch(options.search);
+  const dateFrom = validateDate(options.date_from, "date_from");
+  const dateTo = validateDate(options.date_to, "date_to");
+  if (dateFrom && dateTo && dateFrom > dateTo) {
+    throw badRequest("Invalid date range");
+  }
   const requestedLimit = parsePositiveIntegerQuery(options.limit, "limit", 100);
   const requestedPage = parsePositiveIntegerQuery(options.p, "page");
 
@@ -66,7 +83,7 @@ async function fetchAllArticles(options = {}) {
   if (author) await ensureFilterExists("users", "username", author);
 
   const filterValues = [];
-  const where = ["articles.status = 'published'"];
+  const where = ["articles.status = 'published'", "articles.deleted_at IS NULL"];
 
   if (topic) {
     filterValues.push(topic);
@@ -82,6 +99,14 @@ async function fetchAllArticles(options = {}) {
     where.push(
       `(articles.title ILIKE ${searchParam} OR articles.body ILIKE ${searchParam} OR articles.author ILIKE ${searchParam})`
     );
+  }
+  if (dateFrom) {
+    filterValues.push(dateFrom);
+    where.push("articles.created_at >= $" + filterValues.length + "::date");
+  }
+  if (dateTo) {
+    filterValues.push(dateTo);
+    where.push("articles.created_at < ($" + filterValues.length + "::date + INTERVAL '1 day')");
   }
 
   const countResult = await db.query(
@@ -101,7 +126,7 @@ async function fetchAllArticles(options = {}) {
   const values = [...filterValues];
 
   let query =
-    "SELECT articles.author, articles.title, articles.article_id, articles.topic, articles.created_at, articles.updated_at, articles.votes, articles.article_img_url, COUNT(comments.comment_id)::int AS comment_count FROM articles LEFT JOIN comments ON articles.article_id = comments.article_id";
+    "SELECT articles.author, articles.title, articles.article_id, articles.topic, articles.created_at, articles.updated_at, articles.votes, articles.article_img_url, COUNT(comments.comment_id)::int AS comment_count FROM articles LEFT JOIN comments ON articles.article_id = comments.article_id AND comments.deleted_at IS NULL";
 
   query += " WHERE " + where.join(" AND ");
   query += " GROUP BY articles.article_id";

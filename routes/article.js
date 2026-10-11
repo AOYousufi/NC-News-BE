@@ -20,15 +20,22 @@ const {
   unsaveArticleController,
 } = require("../Controllers/social.controller");
 
+const {
+  articleRecommendations,
+  trendingArticles,
+} = require("../Controllers/discovery.controller");
+
 const router = express.Router();
 
 router.get("/", getAllArticles);
+router.get("/trending", trendingArticles);
 router.post("/", authenticateUser, createArticle);
 
 router.get("/feed", authenticateUser, getFollowingFeedController);
 router.get("/drafts", authenticateUser, getDraftsController);
 
 router.get("/:article_id/manage", authenticateUser, getManagedArticleController);
+router.get("/:article_id/recommendations", articleRecommendations);
 router.get("/:article_id/revisions", authenticateUser, getArticleRevisions);
 router.get("/:article_id/vote", authenticateUser, getArticleVote);
 router.get(

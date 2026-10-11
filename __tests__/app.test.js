@@ -1047,6 +1047,109 @@ describe("public profile stats", () => {
   });
 });
 
+describe("discovery and topic following", () => {
+  test("GET /api/articles/trending returns published articles with hot scores", async () => {
+    const { body } = await request(app)
+      .get("/api/articles/trending?limit=3")
+      .expect(200);
+
+    expect(body.articles.length).toBeLessThanOrEqual(3);
+    body.articles.forEach((article) => {
+      expect(article).toEqual(
+        expect.objectContaining({
+          article_id: expect.any(Number),
+          title: expect.any(String),
+          hot_score: expect.any(Number),
+          comment_count: expect.any(Number),
+        })
+      );
+    });
+  });
+
+  test("GET /api/articles/:article_id/recommendations excludes the source article", async () => {
+    const { body } = await request(app)
+      .get("/api/articles/1/recommendations?limit=4")
+      .expect(200);
+
+    expect(body.articles.length).toBeLessThanOrEqual(4);
+    expect(body.articles.some((article) => article.article_id === 1)).toBe(false);
+    body.articles.forEach((article) =>
+      expect(article.recommendation_score).toEqual(expect.any(Number))
+    );
+  });
+
+  test("GET /api/topics/trending returns engagement-ranked topics", async () => {
+    const { body } = await request(app)
+      .get("/api/topics/trending?limit=3")
+      .expect(200);
+
+    expect(body.topics.length).toBeLessThanOrEqual(3);
+    body.topics.forEach((topic) => {
+      expect(topic).toEqual(
+        expect.objectContaining({
+          slug: expect.any(String),
+          article_count: expect.any(Number),
+          comment_count: expect.any(Number),
+          trend_score: expect.any(Number),
+        })
+      );
+    });
+  });
+
+  test("users can follow topics and followed topics feed the personalised feed", async () => {
+    await request(app)
+      .post("/api/topics/cats/follow")
+      .set(auth("rogersop"))
+      .expect(204);
+
+    const status = await request(app)
+      .get("/api/topics/cats/follow-status")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(status.body).toEqual({ following: true });
+
+    const followed = await request(app)
+      .get("/api/users/me/topics")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(followed.body.topics.map((topic) => topic.slug)).toContain("cats");
+
+    const feed = await request(app)
+      .get("/api/articles/feed")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(feed.body.articles.length).toBeGreaterThan(0);
+    feed.body.articles.forEach((article) => expect(article.topic).toBe("cats"));
+
+    await request(app)
+      .delete("/api/topics/cats/follow")
+      .set(auth("rogersop"))
+      .expect(204);
+  });
+
+  test("article search supports date ranges and validates them", async () => {
+    const all = await request(app).get("/api/articles").expect(200);
+    const date = all.body.articles[0].created_at.slice(0, 10);
+
+    const sameDay = await request(app)
+      .get("/api/articles?date_from=" + date + "&date_to=" + date)
+      .expect(200);
+
+    sameDay.body.articles.forEach((article) => {
+      expect(article.created_at.slice(0, 10)).toBe(date);
+    });
+
+    const invalid = await request(app)
+      .get("/api/articles?date_from=2026-10-10&date_to=2026-10-01")
+      .expect(400);
+
+    expect(invalid.body.msg).toBe("Invalid date range");
+  });
+});
+
 describe("reporting and moderation", () => {
   test("authenticated users can report another user's article", async () => {
     const { body } = await request(app)
