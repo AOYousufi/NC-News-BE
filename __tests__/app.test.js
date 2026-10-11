@@ -72,6 +72,15 @@ describe("GET /api", () => {
   test("200: returns endpoint documentation", async () => {
     const { body } = await request(app).get("/api").expect(200);
     expect(body).toEqual(endpointsJson);
+    expect(body).toEqual(
+      expect.objectContaining({
+        "GET /api/articles/trending": expect.any(Object),
+        "PATCH /api/articles/:article_id/reaction": expect.any(Object),
+        "GET /api/users/me/notifications": expect.any(Object),
+        "GET /api/moderation/audit": expect.any(Object),
+        "POST /api/collections": expect.any(Object),
+      })
+    );
   });
 });
 

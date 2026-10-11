@@ -1,210 +1,291 @@
 {
-  "GET /api": {
-    "description": "Serves a JSON representation of all available API endpoints."
+  "GET /healthz": {
+    "description": "Reports API process health and includes an X-Request-Id response header.",
+    "access": "Public"
   },
-  "GET /api/topics": {
-    "description": "Serves all topics. Public endpoint.",
-    "queries": [],
-    "exampleResponse": {
-      "topics": [
-        {
-          "slug": "football",
-          "description": "Footie!"
-        }
-      ]
-    }
+  "GET /readyz": {
+    "description": "Checks PostgreSQL connectivity and reports service readiness.",
+    "access": "Public"
+  },
+  "GET /api": {
+    "description": "Returns this endpoint documentation.",
+    "access": "Public"
   },
   "GET /api/articles": {
-    "description": "Serves articles. Public endpoint.",
-    "queries": [
-      "author",
-      "topic",
-      "sort_by",
-      "order",
-      "limit",
-      "p"
-    ],
-    "exampleResponse": {
-      "articles": [
-        {
-          "title": "Seafood substitutions are increasing",
-          "topic": "cooking",
-          "author": "weegembump",
-          "article_id": 1,
-          "created_at": "2018-05-30T15:59:13.341Z",
-          "votes": 0,
-          "article_img_url": "https://example.com/article.jpg",
-          "comment_count": 6
-        }
-      ]
-    }
+    "description": "Returns published, non-deleted articles. Supports topic, author, search, date_from, date_to, sort_by, order, limit and p query parameters.",
+    "access": "Public"
+  },
+  "GET /api/articles/trending": {
+    "description": "Returns published articles ranked by votes, discussion and freshness.",
+    "access": "Public"
+  },
+  "GET /api/articles/feed": {
+    "description": "Returns the authenticated user's personalised feed from followed writers and topics.",
+    "access": "Authenticated"
+  },
+  "GET /api/articles/drafts": {
+    "description": "Returns the authenticated user's private, non-deleted draft articles.",
+    "access": "Authenticated"
   },
   "POST /api/articles": {
-    "description": "Creates an article or private draft. Requires authentication. The author is always the authenticated user. Optional status is published or draft.",
+    "description": "Creates a published article or private draft. Author is derived from the bearer token.",
+    "access": "Authenticated",
     "requestBody": {
-      "title": "My article",
-      "topic": "coding",
-      "body": "Article body",
-      "article_img_url": "https://example.com/article.jpg"
-    },
-    "exampleResponse": {
-      "article": {
-        "article_id": 14,
-        "title": "My article",
-        "topic": "coding",
-        "author": "rogersop",
-        "body": "Article body",
-        "votes": 0,
-        "comment_count": 0
-      }
+      "title": "string",
+      "topic": "existing topic slug",
+      "body": "string",
+      "article_img_url": "optional string",
+      "status": "optional: published | draft"
     }
   },
   "GET /api/articles/:article_id": {
-    "description": "Serves the article with the specified ID. Public endpoint. The existing article array response shape is preserved for frontend compatibility.",
-    "queries": [],
-    "exampleResponse": {
-      "article": [
-        {
-          "article_id": 1,
-          "title": "Living in the shadow of a great man",
-          "topic": "mitch",
-          "author": "butter_bridge",
-          "body": "I find this existence challenging",
-          "created_at": "2020-07-09T20:31:00.000Z",
-          "votes": 100,
-          "article_img_url": "https://example.com/article.jpg",
-          "comment_count": 11
-        }
-      ]
-    }
+    "description": "Returns one published, non-deleted article.",
+    "access": "Public"
+  },
+  "GET /api/articles/:article_id/manage": {
+    "description": "Returns an owned article, including drafts, for editing. Deleted articles are excluded.",
+    "access": "Owner"
+  },
+  "GET /api/articles/:article_id/recommendations": {
+    "description": "Returns published recommendation candidates based on topic, author and engagement.",
+    "access": "Public"
+  },
+  "GET /api/articles/:article_id/revisions": {
+    "description": "Returns revision history for an article owned by the authenticated user.",
+    "access": "Owner"
+  },
+  "GET /api/articles/:article_id/vote": {
+    "description": "Returns the authenticated user's stored Agree/Disagree state and whether they can vote.",
+    "access": "Authenticated"
+  },
+  "GET /api/articles/:article_id/reactions": {
+    "description": "Returns aggregate Insightful, Useful and Funny reaction counts.",
+    "access": "Public"
+  },
+  "GET /api/articles/:article_id/reaction": {
+    "description": "Returns the authenticated user's active article reaction and whether they can react.",
+    "access": "Authenticated"
+  },
+  "PATCH /api/articles/:article_id/reaction": {
+    "description": "Adds, switches or removes the authenticated user's Insightful, Useful or Funny reaction.",
+    "access": "Authenticated"
+  },
+  "GET /api/articles/:article_id/comment-votes": {
+    "description": "Returns the authenticated user's vote state for comments on an article.",
+    "access": "Authenticated"
   },
   "GET /api/articles/:article_id/comments": {
-    "description": "Serves comments for an article. Public endpoint.",
-    "queries": [],
-    "exampleResponse": {
-      "comments": [
-        {
-          "comment_id": 10,
-          "body": "git push origin master",
-          "article_id": 3,
-          "author": "icellusedkars",
-          "votes": 0,
-          "created_at": "2020-06-20T07:24:00.000Z"
-        }
-      ]
-    }
+    "description": "Returns the article discussion tree data. Deleted comments are returned as tombstones.",
+    "access": "Public"
   },
   "POST /api/articles/:article_id/comments": {
-    "description": "Adds a top-level comment or reply. Requires authentication. Optional parent_comment_id must reference a comment on the same article.",
+    "description": "Posts a comment or reply on an active published article. Author is derived from the token.",
+    "access": "Authenticated",
     "requestBody": {
-      "body": "My comment"
-    },
-    "exampleResponse": {
-      "Comment": {
-        "comment_id": 19,
-        "body": "My comment",
-        "article_id": 4,
-        "author": "butter_bridge",
-        "votes": 0,
-        "created_at": "2026-10-05T18:00:00.000Z"
-      }
+      "body": "string",
+      "parent_comment_id": "optional positive integer"
     }
+  },
+  "POST /api/articles/:article_id/save": {
+    "description": "Saves/bookmarks an active published article idempotently.",
+    "access": "Authenticated"
+  },
+  "DELETE /api/articles/:article_id/save": {
+    "description": "Removes the authenticated user's saved/bookmark state for an article.",
+    "access": "Authenticated"
   },
   "PATCH /api/articles/:article_id": {
-    "description": "Updates an article. Voting uses only inc_votes. Owner content edits may change title, topic, body, article_img_url or status (draft/published). Vote and content fields cannot be mixed.",
-    "requestBodyExamples": {
-      "vote": {
-        "inc_votes": 1
-      },
-      "edit": {
-        "title": "Updated title",
-        "body": "Updated body",
-        "topic": "coding"
-      }
-    }
+    "description": "Either updates owner-controlled article content/status or changes Agree/Disagree vote state. Vote and content fields cannot be mixed.",
+    "access": "Authenticated; ownership required for content edits"
+  },
+  "DELETE /api/articles/:article_id": {
+    "description": "Soft-deletes an owned article and clears any profile pin pointing to it.",
+    "access": "Owner"
+  },
+  "PATCH /api/comments/:comment_id/vote": {
+    "description": "Adds, switches or removes the authenticated user's Agree/Disagree vote on another user's active comment.",
+    "access": "Authenticated"
+  },
+  "PATCH /api/comments/:comment_id": {
+    "description": "Edits the body of an active comment owned by the authenticated user.",
+    "access": "Owner"
   },
   "DELETE /api/comments/:comment_id": {
-    "description": "Deletes a comment. Requires Authorization: Bearer <token> and the authenticated user must own the comment. Returns 204 on success."
+    "description": "Soft-deletes an owned comment, preserving a tombstone so existing reply threads remain intact.",
+    "access": "Owner"
+  },
+  "GET /api/topics": {
+    "description": "Returns all topics.",
+    "access": "Public"
+  },
+  "GET /api/topics/trending": {
+    "description": "Returns topics ranked by recent article/comment engagement.",
+    "access": "Public"
+  },
+  "POST /api/topics": {
+    "description": "Creates a topic with a validated slug and description.",
+    "access": "Authenticated",
+    "requestBody": {
+      "slug": "lowercase letters, numbers and hyphens",
+      "description": "string"
+    }
+  },
+  "GET /api/topics/:slug/follow-status": {
+    "description": "Returns whether the authenticated user follows a topic.",
+    "access": "Authenticated"
+  },
+  "POST /api/topics/:slug/follow": {
+    "description": "Follows an existing topic idempotently.",
+    "access": "Authenticated"
+  },
+  "DELETE /api/topics/:slug/follow": {
+    "description": "Unfollows a topic.",
+    "access": "Authenticated"
   },
   "GET /api/users": {
-    "description": "Serves public user profiles. Password hashes are never returned. Public endpoint."
-  },
-  "GET /api/users/:username": {
-    "description": "Serves a public user profile by username. Public endpoint."
+    "description": "Returns the public user directory without password hashes or roles.",
+    "access": "Public"
   },
   "POST /api/users/register": {
-    "description": "Registers a user and returns the public profile plus a bearer token.",
+    "description": "Registers a user and returns the current profile plus bearer token.",
+    "access": "Public",
     "requestBody": {
-      "username": "new_user",
-      "name": "New User",
-      "avatar_url": "https://example.com/avatar.png",
-      "password": "at-least-8-characters"
+      "username": "3-30 characters: letters, numbers, _ or -",
+      "name": "string",
+      "avatar_url": "optional string",
+      "password": "8-128 characters"
     }
   },
   "POST /api/users/signup": {
-    "description": "Compatibility alias for POST /api/users/register. Password is now required."
+    "description": "Compatibility alias for POST /api/users/register.",
+    "access": "Public"
   },
   "POST /api/users/login": {
-    "description": "Authenticates a user and returns the public profile plus a bearer token.",
+    "description": "Authenticates a user and returns the current profile plus bearer token.",
+    "access": "Public",
     "requestBody": {
-      "username": "rogersop",
-      "password": "password123"
+      "username": "string",
+      "password": "string"
     }
   },
   "GET /api/users/me": {
-    "description": "Returns the currently authenticated public user profile. Requires Authorization: Bearer <token>."
+    "description": "Returns the authenticated user's current private-session profile state.",
+    "access": "Authenticated"
   },
   "PATCH /api/users/me": {
-    "description": "Updates the authenticated user's name and/or avatar_url. Requires Authorization: Bearer <token>."
+    "description": "Updates display name, avatar, bio and/or an owned published pinned article.",
+    "access": "Authenticated"
   },
-  "DELETE /api/articles/:article_id": {
-    "description": "Deletes an article and its comments. Requires authentication and article ownership. Returns 204 on success."
+  "PATCH /api/users/me/password": {
+    "description": "Changes password after verifying the current password.",
+    "access": "Authenticated"
   },
-  "POST /api/topics": {
-    "description": "Creates a topic. Requires Authorization: Bearer <token>.",
-    "requestBody": {
-      "slug": "technology",
-      "description": "Technology stories and discussion"
-    }
-  },
-  "GET /api/articles/:article_id/vote": {
-    "description": "Returns the authenticated user's current vote state for an article. Requires Authorization: Bearer <token>.",
-    "exampleResponse": {
-      "vote": 1,
-      "can_vote": true
-    }
-  },
-  "GET /api/articles/feed": {
-    "description": "Authenticated personalised feed containing published articles from users the current user follows."
-  },
-  "GET /api/articles/drafts": {
-    "description": "Returns the authenticated user's private draft articles."
-  },
-  "GET /api/articles/:article_id/manage": {
-    "description": "Returns an article, including drafts, only when the authenticated user owns it."
-  },
-  "POST /api/articles/:article_id/save": {
-    "description": "Saves/bookmarks a published article for the authenticated user. Idempotent."
-  },
-  "DELETE /api/articles/:article_id/save": {
-    "description": "Removes a saved/bookmarked article for the authenticated user."
+  "DELETE /api/users/me": {
+    "description": "Permanently deletes the authenticated account after password and exact username confirmation.",
+    "access": "Authenticated"
   },
   "GET /api/users/me/activity": {
-    "description": "Returns dashboard stats and recent activity for the authenticated user."
+    "description": "Returns dashboard statistics and recent non-deleted activity.",
+    "access": "Authenticated"
   },
   "GET /api/users/me/saved": {
-    "description": "Returns the authenticated user's saved published articles."
+    "description": "Returns the authenticated user's saved active published articles.",
+    "access": "Authenticated"
   },
   "GET /api/users/me/following": {
-    "description": "Returns public profiles followed by the authenticated user."
+    "description": "Returns public profiles followed by the authenticated user.",
+    "access": "Authenticated"
   },
-  "POST /api/users/:username/follow": {
-    "description": "Follows another user. Requires authentication and cannot target yourself."
+  "GET /api/users/me/topics": {
+    "description": "Returns topics followed by the authenticated user.",
+    "access": "Authenticated"
   },
-  "DELETE /api/users/:username/follow": {
-    "description": "Unfollows another user."
+  "GET /api/users/me/notifications": {
+    "description": "Returns up to 100 notifications plus unread_count. Use ?unread=true for unread items only.",
+    "access": "Authenticated"
+  },
+  "GET /api/users/me/notifications/count": {
+    "description": "Returns the authenticated user's unread notification count.",
+    "access": "Authenticated"
+  },
+  "PATCH /api/users/me/notifications/read-all": {
+    "description": "Marks all notifications for the authenticated user as read.",
+    "access": "Authenticated"
+  },
+  "PATCH /api/users/me/notifications/:notification_id/read": {
+    "description": "Marks one owned notification as read.",
+    "access": "Authenticated"
+  },
+  "GET /api/users/:username/stats": {
+    "description": "Returns public contribution/follow/received-vote statistics for a user.",
+    "access": "Public"
+  },
+  "GET /api/users/:username/comments": {
+    "description": "Returns a user's public non-deleted comments with article context.",
+    "access": "Public"
   },
   "GET /api/users/:username/follow-status": {
-    "description": "Returns whether the authenticated user follows the requested public profile."
+    "description": "Returns follow state between the authenticated user and target profile.",
+    "access": "Authenticated"
+  },
+  "POST /api/users/:username/follow": {
+    "description": "Follows another user idempotently and creates a notification on first follow.",
+    "access": "Authenticated"
+  },
+  "DELETE /api/users/:username/follow": {
+    "description": "Unfollows another user.",
+    "access": "Authenticated"
+  },
+  "GET /api/users/:username": {
+    "description": "Returns a public profile including bio and active featured article metadata.",
+    "access": "Public"
+  },
+  "POST /api/reports": {
+    "description": "Reports another user's active public article or comment for moderator review.",
+    "access": "Authenticated"
+  },
+  "GET /api/moderation/reports": {
+    "description": "Returns reports filtered by open, resolved, dismissed or all status.",
+    "access": "Moderator"
+  },
+  "PATCH /api/moderation/reports/:report_id": {
+    "description": "Resolves or dismisses a report and writes a moderator audit event.",
+    "access": "Moderator"
+  },
+  "GET /api/moderation/analytics": {
+    "description": "Returns operational counts, active topics and contributor activity.",
+    "access": "Moderator"
+  },
+  "GET /api/moderation/audit": {
+    "description": "Returns recent moderation audit history. Audit rows remain after moderator account deletion.",
+    "access": "Moderator"
+  },
+  "GET /api/collections": {
+    "description": "Lists private collections owned by the authenticated user, with visible article counts.",
+    "access": "Authenticated"
+  },
+  "POST /api/collections": {
+    "description": "Creates a private named collection.",
+    "access": "Authenticated"
+  },
+  "GET /api/collections/:collection_id": {
+    "description": "Returns an owned collection and its active published articles.",
+    "access": "Owner"
+  },
+  "PATCH /api/collections/:collection_id": {
+    "description": "Renames and/or updates the description of an owned collection.",
+    "access": "Owner"
+  },
+  "DELETE /api/collections/:collection_id": {
+    "description": "Deletes an owned collection.",
+    "access": "Owner"
+  },
+  "POST /api/collections/:collection_id/articles/:article_id": {
+    "description": "Adds an active published article to an owned collection idempotently.",
+    "access": "Owner"
+  },
+  "DELETE /api/collections/:collection_id/articles/:article_id": {
+    "description": "Removes an article from an owned collection.",
+    "access": "Owner"
   }
 }

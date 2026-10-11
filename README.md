@@ -223,6 +223,16 @@ Production schema changes use only:
 npm run migrate
 ```
 
+### CORS
+
+The deployed frontend origin is allowed by default. To use a custom domain or additional trusted browser origins, set a comma-separated `CORS_ORIGINS` value, for example:
+
+```text
+CORS_ORIGINS=https://news.example.com,https://staging.example.com
+```
+
+Local development allows the Vite dev/preview origins on ports 5173 and 4173. Requests without a browser `Origin` header remain available for server-to-server clients and command-line API testing.
+
 ## Engineering docs
 
 - [Architecture](docs/ARCHITECTURE.md)
