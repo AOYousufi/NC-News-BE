@@ -1020,6 +1020,83 @@ describe("saved articles, follows, drafts, activity and replies", () => {
   });
 });
 
+describe("profile bio and pinned article", () => {
+  test("users can update their bio and pin one of their published articles", async () => {
+    const updated = await request(app)
+      .patch("/api/users/me")
+      .set(auth("rogersop"))
+      .send({
+        bio: "Backend developer and NC News contributor.",
+        pinned_article_id: 4,
+      })
+      .expect(200);
+
+    expect(updated.body.user).toEqual(
+      expect.objectContaining({
+        username: "rogersop",
+        bio: "Backend developer and NC News contributor.",
+        pinned_article_id: 4,
+      })
+    );
+
+    const current = await request(app)
+      .get("/api/users/me")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(current.body.user).toEqual(
+      expect.objectContaining({
+        pinned_article_id: 4,
+        pinned_article_title: expect.any(String),
+      })
+    );
+
+    const publicProfile = await request(app)
+      .get("/api/users/rogersop")
+      .expect(200);
+
+    expect(publicProfile.body).toEqual(
+      expect.objectContaining({
+        bio: "Backend developer and NC News contributor.",
+        pinned_article_id: 4,
+        pinned_article_title: expect.any(String),
+      })
+    );
+  });
+
+  test("users cannot pin another user's article and can clear their pin", async () => {
+    const rejected = await request(app)
+      .patch("/api/users/me")
+      .set(auth("rogersop"))
+      .send({ pinned_article_id: 1 })
+      .expect(400);
+
+    expect(rejected.body.msg).toBe(
+      "Pinned article must be your own published article"
+    );
+
+    await request(app)
+      .patch("/api/users/me")
+      .set(auth("rogersop"))
+      .send({ pinned_article_id: null })
+      .expect(200);
+  });
+
+  test("profile updates reject unknown fields and oversized bios", async () => {
+    await request(app)
+      .patch("/api/users/me")
+      .set(auth("rogersop"))
+      .send({ website: "https://example.com" })
+      .expect(400);
+
+    await request(app)
+      .patch("/api/users/me")
+      .set(auth("rogersop"))
+      .send({ bio: "x".repeat(501) })
+      .expect(400);
+  });
+});
+
 describe("public profile stats", () => {
   test("GET /api/users/:username/stats returns public contribution stats", async () => {
     const { body } = await request(app)
