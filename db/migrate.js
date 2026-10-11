@@ -1,7 +1,8 @@
 const db = require("./connection");
 const currentSchema = require("./migrations/001_current_schema");
+const socialDiscoveryAndSafety = require("./migrations/002_social_discovery_and_safety");
 
-const migrations = [currentSchema];
+const migrations = [currentSchema, socialDiscoveryAndSafety];
 
 async function ensureMigrationTable() {
   await db.query(`

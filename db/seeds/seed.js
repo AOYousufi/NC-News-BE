@@ -11,7 +11,11 @@ const SEEDED_PASSWORD_HASH =
 
 const seed = ({ topicData, userData, articleData, commentData }) => {
   return db
-    .query("DROP TABLE IF EXISTS reports;")
+    .query("DROP TABLE IF EXISTS moderator_audit_log;")
+    .then(() => db.query("DROP TABLE IF EXISTS collection_articles;"))
+    .then(() => db.query("DROP TABLE IF EXISTS collections;"))
+    .then(() => db.query("DROP TABLE IF EXISTS topic_follows;"))
+    .then(() => db.query("DROP TABLE IF EXISTS reports;"))
     .then(() => db.query("DROP TABLE IF EXISTS notifications;"))
     .then(() => db.query("DROP TABLE IF EXISTS article_revisions;"))
     .then(() => db.query("DROP TABLE IF EXISTS saved_articles;"))
@@ -27,18 +31,23 @@ const seed = ({ topicData, userData, articleData, commentData }) => {
         "CREATE TABLE topics (slug VARCHAR PRIMARY KEY, description VARCHAR);"
       );
       const usersTablePromise = db.query(
-        "CREATE TABLE users (username VARCHAR PRIMARY KEY, name VARCHAR NOT NULL, avatar_url VARCHAR, password_hash VARCHAR NOT NULL, role VARCHAR(20) DEFAULT 'user' NOT NULL CHECK (role IN ('user', 'moderator')));"
+        "CREATE TABLE users (username VARCHAR PRIMARY KEY, name VARCHAR NOT NULL, avatar_url VARCHAR, password_hash VARCHAR NOT NULL, role VARCHAR(20) DEFAULT 'user' NOT NULL CHECK (role IN ('user', 'moderator')), bio VARCHAR(500));"
       );
       return Promise.all([topicsTablePromise, usersTablePromise]);
     })
     .then(() =>
       db.query(
-        "CREATE TABLE articles (article_id SERIAL PRIMARY KEY, title VARCHAR NOT NULL, topic VARCHAR NOT NULL REFERENCES topics(slug), author VARCHAR NOT NULL REFERENCES users(username), body VARCHAR NOT NULL, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW(), votes INT DEFAULT 0 NOT NULL, article_img_url VARCHAR DEFAULT 'https://images.pexels.com/photos/97050/pexels-photo-97050.jpeg?w=700&h=700', status VARCHAR(20) DEFAULT 'published' NOT NULL CHECK (status IN ('published', 'draft')));"
+        "CREATE TABLE articles (article_id SERIAL PRIMARY KEY, title VARCHAR NOT NULL, topic VARCHAR NOT NULL REFERENCES topics(slug), author VARCHAR NOT NULL REFERENCES users(username), body VARCHAR NOT NULL, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW(), votes INT DEFAULT 0 NOT NULL, article_img_url VARCHAR DEFAULT 'https://images.pexels.com/photos/97050/pexels-photo-97050.jpeg?w=700&h=700', status VARCHAR(20) DEFAULT 'published' NOT NULL CHECK (status IN ('published', 'draft')), deleted_at TIMESTAMP);"
       )
     )
     .then(() =>
       db.query(
-        "CREATE TABLE comments (comment_id SERIAL PRIMARY KEY, body VARCHAR NOT NULL, article_id INT REFERENCES articles(article_id) ON DELETE CASCADE NOT NULL, author VARCHAR REFERENCES users(username) NOT NULL, votes INT DEFAULT 0 NOT NULL, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW(), parent_comment_id INT REFERENCES comments(comment_id) ON DELETE CASCADE);"
+        "ALTER TABLE users ADD COLUMN pinned_article_id INT REFERENCES articles(article_id) ON DELETE SET NULL;"
+      )
+    )
+    .then(() =>
+      db.query(
+        "CREATE TABLE comments (comment_id SERIAL PRIMARY KEY, body VARCHAR NOT NULL, article_id INT REFERENCES articles(article_id) ON DELETE CASCADE NOT NULL, author VARCHAR REFERENCES users(username) NOT NULL, votes INT DEFAULT 0 NOT NULL, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW(), parent_comment_id INT REFERENCES comments(comment_id) ON DELETE CASCADE, deleted_at TIMESTAMP);"
       )
     )
     .then(() =>
@@ -73,7 +82,27 @@ const seed = ({ topicData, userData, articleData, commentData }) => {
     )
     .then(() =>
       db.query(
-        "CREATE TABLE notifications (notification_id SERIAL PRIMARY KEY, recipient_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE, actor_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE, type VARCHAR(40) NOT NULL CHECK (type IN ('follow', 'article_comment', 'reply', 'article_agree', 'article_disagree')), article_id INT REFERENCES articles(article_id) ON DELETE CASCADE, comment_id INT REFERENCES comments(comment_id) ON DELETE CASCADE, created_at TIMESTAMP DEFAULT NOW(), read_at TIMESTAMP);"
+        "CREATE TABLE notifications (notification_id SERIAL PRIMARY KEY, recipient_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE, actor_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE, type VARCHAR(40) NOT NULL CHECK (type IN ('follow', 'article_comment', 'reply', 'article_agree', 'article_disagree', 'mention')), article_id INT REFERENCES articles(article_id) ON DELETE CASCADE, comment_id INT REFERENCES comments(comment_id) ON DELETE CASCADE, created_at TIMESTAMP DEFAULT NOW(), read_at TIMESTAMP);"
+      )
+    )
+    .then(() =>
+      db.query(
+        "CREATE TABLE topic_follows (username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE, topic_slug VARCHAR NOT NULL REFERENCES topics(slug) ON DELETE CASCADE, created_at TIMESTAMP DEFAULT NOW(), PRIMARY KEY (username, topic_slug));"
+      )
+    )
+    .then(() =>
+      db.query(
+        "CREATE TABLE collections (collection_id SERIAL PRIMARY KEY, username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE, name VARCHAR(80) NOT NULL, description VARCHAR(300) DEFAULT '', created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW(), UNIQUE (username, name));"
+      )
+    )
+    .then(() =>
+      db.query(
+        "CREATE TABLE collection_articles (collection_id INT NOT NULL REFERENCES collections(collection_id) ON DELETE CASCADE, article_id INT NOT NULL REFERENCES articles(article_id) ON DELETE CASCADE, added_at TIMESTAMP DEFAULT NOW(), PRIMARY KEY (collection_id, article_id));"
+      )
+    )
+    .then(() =>
+      db.query(
+        "CREATE TABLE moderator_audit_log (audit_id SERIAL PRIMARY KEY, moderator_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE, action VARCHAR(60) NOT NULL, target_type VARCHAR(30) NOT NULL, target_id INT, details JSONB DEFAULT '{}'::jsonb, created_at TIMESTAMP DEFAULT NOW());"
       )
     )
     .then(() => {
