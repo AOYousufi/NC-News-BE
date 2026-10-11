@@ -11,7 +11,8 @@ const SEEDED_PASSWORD_HASH =
 
 const seed = ({ topicData, userData, articleData, commentData }) => {
   return db
-    .query("DROP TABLE IF EXISTS moderator_audit_log;")
+    .query("DROP TABLE IF EXISTS article_reactions;")
+    .then(() => db.query("DROP TABLE IF EXISTS moderator_audit_log;"))
     .then(() => db.query("DROP TABLE IF EXISTS collection_articles;"))
     .then(() => db.query("DROP TABLE IF EXISTS collections;"))
     .then(() => db.query("DROP TABLE IF EXISTS topic_follows;"))
@@ -108,6 +109,11 @@ const seed = ({ topicData, userData, articleData, commentData }) => {
     .then(() =>
       db.query(
         "CREATE TABLE moderator_audit_log (audit_id SERIAL PRIMARY KEY, moderator_username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE, action VARCHAR(60) NOT NULL, target_type VARCHAR(30) NOT NULL, target_id INT, details JSONB DEFAULT '{}'::jsonb, created_at TIMESTAMP DEFAULT NOW());"
+      )
+    )
+    .then(() =>
+      db.query(
+        "CREATE TABLE article_reactions (username VARCHAR NOT NULL REFERENCES users(username) ON DELETE CASCADE, article_id INT NOT NULL REFERENCES articles(article_id) ON DELETE CASCADE, reaction VARCHAR(20) NOT NULL CHECK (reaction IN ('insightful', 'useful', 'funny')), created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW(), PRIMARY KEY (username, article_id));"
       )
     )
     .then(() => {

@@ -1264,6 +1264,78 @@ describe("article collections", () => {
   });
 });
 
+describe("article reactions", () => {
+  test("users can add, switch and remove a reaction", async () => {
+    const insightful = await request(app)
+      .patch("/api/articles/1/reaction")
+      .set(auth("rogersop"))
+      .send({ reaction: "insightful" })
+      .expect(200);
+
+    expect(insightful.body).toEqual({
+      reaction: "insightful",
+      counts: expect.objectContaining({ insightful: 1, useful: 0, funny: 0 }),
+    });
+
+    const useful = await request(app)
+      .patch("/api/articles/1/reaction")
+      .set(auth("rogersop"))
+      .send({ reaction: "useful" })
+      .expect(200);
+
+    expect(useful.body.reaction).toBe("useful");
+    expect(useful.body.counts).toEqual(
+      expect.objectContaining({ insightful: 0, useful: 1, funny: 0 })
+    );
+
+    const neutral = await request(app)
+      .patch("/api/articles/1/reaction")
+      .set(auth("rogersop"))
+      .send({ reaction: "useful" })
+      .expect(200);
+
+    expect(neutral.body.reaction).toBeNull();
+    expect(neutral.body.counts.useful).toBe(0);
+  });
+
+  test("reaction summary is public and user state persists", async () => {
+    await request(app)
+      .patch("/api/articles/1/reaction")
+      .set(auth("rogersop"))
+      .send({ reaction: "funny" })
+      .expect(200);
+
+    const summary = await request(app)
+      .get("/api/articles/1/reactions")
+      .expect(200);
+
+    expect(summary.body.reactions.funny).toBe(1);
+
+    const state = await request(app)
+      .get("/api/articles/1/reaction")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(state.body).toEqual({ reaction: "funny", can_react: true });
+  });
+
+  test("authors cannot react to their own articles and invalid reactions fail", async () => {
+    const own = await request(app)
+      .patch("/api/articles/4/reaction")
+      .set(auth("rogersop"))
+      .send({ reaction: "useful" })
+      .expect(403);
+
+    expect(own.body.msg).toBe("You cannot react to your own article");
+
+    await request(app)
+      .patch("/api/articles/1/reaction")
+      .set(auth("rogersop"))
+      .send({ reaction: "love" })
+      .expect(400);
+  });
+});
+
 describe("discovery and topic following", () => {
   test("GET /api/articles/trending returns published articles with hot scores", async () => {
     const { body } = await request(app)

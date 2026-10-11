@@ -24,6 +24,11 @@ const {
   articleRecommendations,
   trendingArticles,
 } = require("../Controllers/discovery.controller");
+const {
+  reactionSummary,
+  updateReactionController,
+  userReaction,
+} = require("../Controllers/articleReaction.controller");
 
 const router = express.Router();
 
@@ -36,6 +41,9 @@ router.get("/drafts", authenticateUser, getDraftsController);
 
 router.get("/:article_id/manage", authenticateUser, getManagedArticleController);
 router.get("/:article_id/recommendations", articleRecommendations);
+router.get("/:article_id/reactions", reactionSummary);
+router.get("/:article_id/reaction", authenticateUser, userReaction);
+router.patch("/:article_id/reaction", authenticateUser, updateReactionController);
 router.get("/:article_id/revisions", authenticateUser, getArticleRevisions);
 router.get("/:article_id/vote", authenticateUser, getArticleVote);
 router.get(
