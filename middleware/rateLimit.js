@@ -1,4 +1,11 @@
 const buckets = new Map();
+let operations = 0;
+
+function pruneExpiredBuckets(now = Date.now()) {
+  for (const [key, bucket] of buckets.entries()) {
+    if (now >= bucket.resetAt) buckets.delete(key);
+  }
+}
 
 function createRateLimiter({
   windowMs = 15 * 60 * 1000,
@@ -10,6 +17,12 @@ function createRateLimiter({
     if (skip?.(req)) return next();
 
     const now = Date.now();
+    operations += 1;
+
+    if (operations % 250 === 0 || buckets.size > 5000) {
+      pruneExpiredBuckets(now);
+    }
+
     const key = req.ip || req.socket?.remoteAddress || "unknown";
     const bucketKey = key + ":" + req.baseUrl + ":" + (req.route?.path || req.path);
     const existing = buckets.get(bucketKey);
@@ -36,6 +49,7 @@ function createRateLimiter({
 
 function resetRateLimits() {
   buckets.clear();
+  operations = 0;
 }
 
 const authRateLimiter = createRateLimiter({
@@ -54,6 +68,7 @@ const writeRateLimiter = createRateLimiter({
 module.exports = {
   authRateLimiter,
   createRateLimiter,
+  pruneExpiredBuckets,
   resetRateLimits,
   writeRateLimiter,
 };

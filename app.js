@@ -10,6 +10,7 @@ const collectionRouter = require("./routes/collections");
 const getAllApi = require("./Controllers/getAPI.controller.js");
 const { health, readiness } = require("./Controllers/health.controller");
 const requestLogger = require("./middleware/requestLogger");
+const { corsOptions, securityHeaders } = require("./middleware/security");
 const {
   authRateLimiter,
   writeRateLimiter,
@@ -23,8 +24,14 @@ const {
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+app.disable("x-powered-by");
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
+
+app.use(cors(corsOptions));
+app.use(securityHeaders);
+app.use(express.json({ limit: "100kb" }));
 app.use(requestLogger);
 
 app.get("/healthz", health);

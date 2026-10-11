@@ -35,6 +35,39 @@ describe("service health", () => {
   });
 });
 
+describe("HTTP security and CORS", () => {
+  test("responses include browser security headers and hide Express branding", async () => {
+    const response = await request(app).get("/healthz").expect(200);
+
+    expect(response.headers["x-powered-by"]).toBeUndefined();
+    expect(response.headers["x-content-type-options"]).toBe("nosniff");
+    expect(response.headers["x-frame-options"]).toBe("DENY");
+    expect(response.headers["referrer-policy"]).toBe("no-referrer");
+    expect(response.headers["permissions-policy"]).toContain("camera=()");
+    expect(response.headers["content-security-policy"]).toContain(
+      "default-src 'none'"
+    );
+  });
+
+  test("development CORS allows the local frontend and omits CORS headers for unknown browser origins", async () => {
+    const allowed = await request(app)
+      .get("/api")
+      .set("Origin", "http://localhost:5173")
+      .expect(200);
+
+    expect(allowed.headers["access-control-allow-origin"]).toBe(
+      "http://localhost:5173"
+    );
+
+    const denied = await request(app)
+      .get("/api")
+      .set("Origin", "https://malicious.example")
+      .expect(200);
+
+    expect(denied.headers["access-control-allow-origin"]).toBeUndefined();
+  });
+});
+
 describe("GET /api", () => {
   test("200: returns endpoint documentation", async () => {
     const { body } = await request(app).get("/api").expect(200);
@@ -284,6 +317,8 @@ describe("authentication and users", () => {
       username: newUser.username,
       name: newUser.name,
       avatar_url: newUser.avatar_url,
+      bio: null,
+      pinned_article_id: null,
       role: "user",
     });
     expect(body.token).toEqual(expect.any(String));
@@ -324,7 +359,14 @@ describe("authentication and users", () => {
       .post("/api/users/login")
       .send({ username: "rogersop", password: "password123" })
       .expect(200);
-    expect(body.user.username).toBe("rogersop");
+    expect(body.user).toEqual(
+      expect.objectContaining({
+        username: "rogersop",
+        bio: null,
+        pinned_article_id: null,
+        role: "moderator",
+      })
+    );
     expect(body.token).toEqual(expect.any(String));
     expect(JSON.stringify(body)).not.toContain("password_hash");
   });
