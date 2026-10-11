@@ -510,11 +510,18 @@ describe("protected write endpoints", () => {
     expect(body.msg).toBe("Authentication required");
   });
 
-  test("a user can delete their own comment", async () => {
+  test("a user can soft-delete their own comment without breaking the thread", async () => {
     await request(app)
       .delete("/api/comments/2")
       .set(auth("butter_bridge"))
       .expect(204);
+
+    const { rows } = await db.query(
+      "SELECT body, deleted_at FROM comments WHERE comment_id = 2;"
+    );
+
+    expect(rows[0].body).toBe("[deleted]");
+    expect(rows[0].deleted_at).not.toBeNull();
   });
 
   test("a user cannot delete somebody else's comment", async () => {
@@ -751,7 +758,7 @@ describe("article ownership CRUD", () => {
     expect(body.msg).toBe("Forbidden");
   });
 
-  test("an owner can delete an article and its comments are removed", async () => {
+  test("an owner can soft-delete an article while preserving related data", async () => {
     const created = await request(app)
       .post("/api/articles")
       .set(auth("rogersop"))
@@ -777,11 +784,17 @@ describe("article ownership CRUD", () => {
 
     await request(app).get("/api/articles/" + articleId).expect(404);
 
-    const { rows } = await db.query(
+    const articleRow = await db.query(
+      "SELECT deleted_at FROM articles WHERE article_id = $1;",
+      [articleId]
+    );
+    const comments = await db.query(
       "SELECT COUNT(*)::int AS count FROM comments WHERE article_id = $1;",
       [articleId]
     );
-    expect(rows[0].count).toBe(0);
+
+    expect(articleRow.rows[0].deleted_at).not.toBeNull();
+    expect(comments.rows[0].count).toBe(1);
   });
 
   test("article deletion validates ids and missing resources", async () => {
@@ -1452,6 +1465,79 @@ describe("reporting and moderation", () => {
         reason: "not-valid",
       })
       .expect(400);
+  });
+});
+
+describe("moderation analytics and audit history", () => {
+  test("moderators can view platform analytics", async () => {
+    const { body } = await request(app)
+      .get("/api/moderation/analytics")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(body.analytics).toEqual(
+      expect.objectContaining({
+        counts: expect.objectContaining({
+          users: expect.any(Number),
+          published_articles: expect.any(Number),
+          drafts: expect.any(Number),
+          comments: expect.any(Number),
+          open_reports: expect.any(Number),
+          saved_articles: expect.any(Number),
+          user_follows: expect.any(Number),
+          topic_follows: expect.any(Number),
+          collections: expect.any(Number),
+        }),
+        top_topics: expect.any(Array),
+        active_users: expect.any(Array),
+      })
+    );
+  });
+
+  test("reviewing a report writes a moderator audit entry", async () => {
+    const created = await request(app)
+      .post("/api/reports")
+      .set(auth("butter_bridge"))
+      .send({
+        target_type: "article",
+        target_id: 4,
+        reason: "spam",
+      })
+      .expect(201);
+
+    await request(app)
+      .patch("/api/moderation/reports/" + created.body.report.report_id)
+      .set(auth("rogersop"))
+      .send({ status: "resolved" })
+      .expect(200);
+
+    const { body } = await request(app)
+      .get("/api/moderation/audit")
+      .set(auth("rogersop"))
+      .expect(200);
+
+    expect(body.audit).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          moderator_username: "rogersop",
+          action: "report_resolved",
+          target_type: "article",
+          target_id: 4,
+        }),
+      ])
+    );
+  });
+
+  test("normal users cannot access analytics or audit history", async () => {
+    await request(app)
+      .get("/api/moderation/analytics")
+      .set(auth("butter_bridge"))
+      .expect(403);
+
+    await request(app)
+      .get("/api/moderation/audit")
+      .set(auth("butter_bridge"))
+      .expect(403);
   });
 });
 

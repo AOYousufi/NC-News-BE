@@ -12,7 +12,7 @@ async function editComment(commentIdInput, username, body) {
   if (cleaned.length > 10000) throw badRequest();
 
   const owner = await db.query(
-    "SELECT author FROM comments WHERE comment_id = $1;",
+    "SELECT author FROM comments WHERE comment_id = $1 AND deleted_at IS NULL;",
     [commentId]
   );
 

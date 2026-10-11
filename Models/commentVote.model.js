@@ -12,7 +12,7 @@ async function updateCommentVote(commentIdInput, incVotes, username) {
     await client.query("BEGIN");
 
     const commentResult = await client.query(
-      "SELECT author FROM comments WHERE comment_id = $1 FOR UPDATE;",
+      "SELECT author FROM comments WHERE comment_id = $1 AND deleted_at IS NULL FOR UPDATE;",
       [commentId]
     );
 
@@ -72,7 +72,7 @@ async function getCommentVotesForArticle(articleIdInput, username) {
   const articleId = parsePositiveId(articleIdInput);
 
   const article = await db.query(
-    "SELECT article_id FROM articles WHERE article_id = $1 AND status = 'published';",
+    "SELECT article_id FROM articles WHERE article_id = $1 AND status = 'published' AND deleted_at IS NULL;",
     [articleId]
   );
 
@@ -85,7 +85,7 @@ async function getCommentVotesForArticle(articleIdInput, username) {
      FROM comments c
      LEFT JOIN comment_votes cv
        ON cv.comment_id = c.comment_id AND cv.username = $2
-     WHERE c.article_id = $1;`,
+     WHERE c.article_id = $1 AND c.deleted_at IS NULL;`,
     [articleId, username]
   );
 

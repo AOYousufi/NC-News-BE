@@ -5,19 +5,27 @@ async function deleteComment(commentIdInput, username) {
   const commentId = parsePositiveId(commentIdInput);
 
   const { rows } = await db.query(
-    "SELECT author FROM comments WHERE comment_id = $1;",
+    `UPDATE comments
+     SET body = '[deleted]', deleted_at = NOW(), updated_at = NOW()
+     WHERE comment_id = $1
+       AND author = $2
+       AND deleted_at IS NULL
+     RETURNING comment_id;`,
+    [commentId, username]
+  );
+
+  if (rows.length) return;
+
+  const existing = await db.query(
+    "SELECT author, deleted_at FROM comments WHERE comment_id = $1;",
     [commentId]
   );
 
-  if (rows.length === 0) {
-    return Promise.reject({ status: 404, msg: "Not Found" });
+  if (!existing.rows.length || existing.rows[0].deleted_at) {
+    throw { status: 404, msg: "Not Found" };
   }
 
-  if (rows[0].author !== username) {
-    return Promise.reject({ status: 403, msg: "Forbidden" });
-  }
-
-  await db.query("DELETE FROM comments WHERE comment_id = $1;", [commentId]);
+  throw { status: 403, msg: "Forbidden" };
 }
 
 module.exports = deleteComment;

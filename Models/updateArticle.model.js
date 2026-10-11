@@ -15,7 +15,7 @@ async function update_Article(articleIdInput, incVotes, username) {
     await client.query("BEGIN");
 
     const articleResult = await client.query(
-      "SELECT author FROM articles WHERE article_id = $1 FOR UPDATE;",
+      "SELECT author FROM articles WHERE article_id = $1 AND deleted_at IS NULL FOR UPDATE;",
       [articleId]
     );
 
@@ -88,7 +88,7 @@ async function getUserArticleVote(articleIdInput, username) {
   const articleId = parsePositiveId(articleIdInput);
 
   const articleResult = await db.query(
-    "SELECT author FROM articles WHERE article_id = $1;",
+    "SELECT author FROM articles WHERE article_id = $1 AND deleted_at IS NULL;",
     [articleId]
   );
 

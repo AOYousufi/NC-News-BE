@@ -17,7 +17,7 @@ async function editArticle(articleIdInput, username, updates) {
     await client.query("BEGIN");
 
     const ownerResult = await client.query(
-      "SELECT * FROM articles WHERE article_id = $1 FOR UPDATE;",
+      "SELECT * FROM articles WHERE article_id = $1 AND deleted_at IS NULL FOR UPDATE;",
       [articleId]
     );
 
@@ -63,7 +63,7 @@ async function editArticle(articleIdInput, username, updates) {
     );
 
     const countResult = await client.query(
-      "SELECT COUNT(*)::int AS comment_count FROM comments WHERE article_id = $1;",
+      "SELECT COUNT(*)::int AS comment_count FROM comments WHERE article_id = $1 AND deleted_at IS NULL;",
       [articleId]
     );
 

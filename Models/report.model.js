@@ -1,5 +1,6 @@
 const db = require("../db/connection");
 const { parsePositiveId, badRequest } = require("../utils/validation");
+const { logModeratorAction } = require("./moderation.model");
 
 const VALID_REASONS = new Set([
   "spam",
@@ -29,7 +30,11 @@ async function createReport(username, input) {
 
   if (target_type === "article") {
     const { rows } = await db.query(
-      "SELECT article_id, author FROM articles WHERE article_id = $1 AND status = 'published';",
+      `SELECT article_id, author
+       FROM articles
+       WHERE article_id = $1
+         AND status = 'published'
+         AND deleted_at IS NULL;`,
       [targetId]
     );
     if (!rows.length) throw { status: 404, msg: "Not Found" };
@@ -40,7 +45,10 @@ async function createReport(username, input) {
       `SELECT c.comment_id, c.author, c.article_id
        FROM comments c
        JOIN articles a ON a.article_id = c.article_id
-       WHERE c.comment_id = $1 AND a.status = 'published';`,
+       WHERE c.comment_id = $1
+         AND c.deleted_at IS NULL
+         AND a.status = 'published'
+         AND a.deleted_at IS NULL;`,
       [targetId]
     );
     if (!rows.length) throw { status: 404, msg: "Not Found" };
@@ -96,16 +104,45 @@ async function reviewReport(reportIdInput, reviewer, status) {
 
   if (!["resolved", "dismissed"].includes(status)) throw badRequest();
 
-  const { rows } = await db.query(
-    `UPDATE reports
-     SET status = $1, reviewer_username = $2, reviewed_at = NOW()
-     WHERE report_id = $3
-     RETURNING *;`,
-    [status, reviewer, reportId]
-  );
+  const client = await db.connect();
 
-  if (!rows.length) throw { status: 404, msg: "Not Found" };
-  return rows[0];
+  try {
+    await client.query("BEGIN");
+
+    const { rows } = await client.query(
+      `UPDATE reports
+       SET status = $1, reviewer_username = $2, reviewed_at = NOW()
+       WHERE report_id = $3
+       RETURNING *;`,
+      [status, reviewer, reportId]
+    );
+
+    if (!rows.length) throw { status: 404, msg: "Not Found" };
+
+    const report = rows[0];
+
+    await logModeratorAction(
+      reviewer,
+      "report_" + status,
+      report.target_type,
+      report.target_type === "article"
+        ? report.article_id
+        : report.comment_id,
+      {
+        report_id: report.report_id,
+        reason: report.reason,
+      },
+      client
+    );
+
+    await client.query("COMMIT");
+    return report;
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 module.exports = { createReport, listReports, reviewReport };
