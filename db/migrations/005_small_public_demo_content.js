@@ -75,7 +75,7 @@ async function up(client) {
     await client.query(
       `INSERT INTO articles
          (title, topic, author, body, article_img_url, votes, status, created_at, updated_at)
-       SELECT $1, $2, $3, $4, $5, 0, 'published',
+       SELECT $1::varchar, $2::varchar, $3::varchar, $4::varchar, $5::varchar, 0, 'published',
               NOW() - ($6::integer * INTERVAL '1 day'),
               NOW() - ($6::integer * INTERVAL '1 day')
        WHERE NOT EXISTS (
