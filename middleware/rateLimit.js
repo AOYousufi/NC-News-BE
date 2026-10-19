@@ -24,7 +24,9 @@ function createRateLimiter({
     }
 
     const key = req.ip || req.socket?.remoteAddress || "unknown";
-    const bucketKey = key + ":" + req.baseUrl + ":" + (req.route?.path || req.path);
+    // Share a quota across all routes under the same mounted limiter.
+    // Otherwise, changing an article or comment ID bypasses the write limit.
+    const bucketKey = key + ":" + (req.baseUrl || "/");
     const existing = buckets.get(bucketKey);
 
     if (!existing || now >= existing.resetAt) {
