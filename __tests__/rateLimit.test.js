@@ -45,4 +45,27 @@ describe("rate limiting", () => {
     await request(app).post("/").expect(204);
     await request(app).post("/").expect(429);
   });
+
+  test("shares a write quota across different resource IDs", async () => {
+    const app = express();
+    app.use("/api", createRateLimiter({ windowMs: 60_000, max: 2 }));
+    app.post("/api/articles/:id/comments", (req, res) => res.sendStatus(204));
+
+    await request(app).post("/api/articles/1/comments").expect(204);
+    await request(app).post("/api/articles/2/comments").expect(204);
+    await request(app).post("/api/articles/3/comments").expect(429);
+  });
+
+  test("keeps quotas separate for different mounted authentication routes", async () => {
+    const app = express();
+    const limiter = createRateLimiter({ windowMs: 60_000, max: 1 });
+    app.use("/api/users/login", limiter);
+    app.use("/api/users/register", limiter);
+    app.post("/api/users/login", (req, res) => res.sendStatus(204));
+    app.post("/api/users/register", (req, res) => res.sendStatus(204));
+
+    await request(app).post("/api/users/login").expect(204);
+    await request(app).post("/api/users/register").expect(204);
+    await request(app).post("/api/users/login").expect(429);
+  });
 });
