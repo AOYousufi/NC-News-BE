@@ -74,8 +74,20 @@ async function hashPassword(password) {
 
 async function verifyPassword(password, storedHash) {
   if (typeof storedHash !== "string") return false;
-  const [algorithm, saltHex, hashHex] = storedHash.split("$");
-  if (algorithm !== "scrypt" || !saltHex || !hashHex) return false;
+  const parts = storedHash.split("$");
+  if (parts.length !== 3) return false;
+  const [algorithm, saltHex, hashHex] = parts;
+
+  // hashPassword always generates a 16-byte salt and 64-byte key.
+  // Buffer.from(hex, "hex") silently truncates malformed text, potentially
+  // producing two empty buffers that timingSafeEqual would consider equal.
+  if (
+    algorithm !== "scrypt" ||
+    !/^[0-9a-f]{32}$/i.test(saltHex) ||
+    !/^[0-9a-f]{128}$/i.test(hashHex)
+  ) {
+    return false;
+  }
 
   const expected = Buffer.from(hashHex, "hex");
   const actual = await scrypt(password, Buffer.from(saltHex, "hex"), expected.length);
