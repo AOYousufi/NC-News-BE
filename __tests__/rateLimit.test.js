@@ -56,6 +56,29 @@ describe("rate limiting", () => {
     await request(app).post("/api/articles/3/comments").expect(429);
   });
 
+  test("isolates separate limiter instances on the same mount path", async () => {
+    const app = express();
+    const first = createRateLimiter({
+      windowMs: 60_000,
+      max: 1,
+      skip: (req) => req.path !== "/first",
+    });
+    const second = createRateLimiter({
+      windowMs: 60_000,
+      max: 1,
+      skip: (req) => req.path !== "/second",
+    });
+
+    app.use("/api", first, second);
+    app.post("/api/first", (req, res) => res.sendStatus(204));
+    app.post("/api/second", (req, res) => res.sendStatus(204));
+
+    await request(app).post("/api/first").expect(204);
+    await request(app).post("/api/second").expect(204);
+    await request(app).post("/api/first").expect(429);
+    await request(app).post("/api/second").expect(429);
+  });
+
   test("keeps quotas separate for different mounted authentication routes", async () => {
     const app = express();
     const limiter = createRateLimiter({ windowMs: 60_000, max: 1 });
