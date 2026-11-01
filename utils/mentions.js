@@ -5,7 +5,8 @@ function extractMentions(body) {
   if (typeof body !== "string") return [];
 
   const usernames = new Set();
-  const regex = /(^|\s)@([A-Za-z0-9_-]{3,30})\b/g;
+  // Recognise bracketed mentions and prevent partial matches of long usernames.
+  const regex = /(^|[\s([{])@([A-Za-z0-9_-]{3,30})(?![A-Za-z0-9_-])/g;
   let match;
 
   while ((match = regex.exec(body)) !== null) {
