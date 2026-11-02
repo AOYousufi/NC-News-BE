@@ -4,6 +4,19 @@ const {
 } = require("../utils/validation");
 const { validateArticleFields } = require("../utils/articleValidation");
 
+function expectBadRequest(action, expectedMessage) {
+  try {
+    action();
+  } catch (error) {
+    expect(error).toMatchObject({
+      status: 400,
+      ...(expectedMessage ? { msg: expectedMessage } : {}),
+    });
+    return;
+  }
+  throw new Error("Expected a 400 Bad Request error");
+}
+
 describe("numeric request parameter validation", () => {
   test.each([
     ["1", 1],
@@ -28,10 +41,8 @@ describe("numeric request parameter validation", () => {
     [],
     {},
     true,
-  ])("rejects an invalid resource ID: %s", (input) => {
-    expect(() => parsePositiveId(input)).toThrow(
-      expect.objectContaining({ status: 400 })
-    );
+  ].map((input) => [input]))("rejects an invalid resource ID: %s", (input) => {
+    expectBadRequest(() => parsePositiveId(input));
   });
 
   test("allows an omitted optional query parameter", () => {
@@ -43,12 +54,10 @@ describe("numeric request parameter validation", () => {
     expect(parsePositiveIntegerQuery("0005", "limit", 100)).toBe(5);
   });
 
-  test.each(["0", "101", "-1", "2.5", "1e2", " 5 ", [], {}])(
+  test.each(["0", "101", "-1", "2.5", "1e2", " 5 ", [], {}].map((input) => [input]))(
     "rejects an invalid bounded query: %s",
     (input) => {
-      expect(() => parsePositiveIntegerQuery(input, "limit", 100)).toThrow(
-        expect.objectContaining({ status: 400, msg: "Invalid limit value" })
-      );
+      expectBadRequest(() => parsePositiveIntegerQuery(input, "limit", 100), "Invalid limit value");
     }
   );
 });
@@ -94,16 +103,11 @@ describe("article payload validation", () => {
     [null],
     [[]],
   ])("rejects malformed create payload: %s", (input) => {
-    expect(() => validateArticleFields(input)).toThrow(
-      expect.objectContaining({ status: 400 })
-    );
+    expectBadRequest(() => validateArticleFields(input));
   });
 
   test("rejects empty or unknown partial updates", () => {
-    expect(() => validateArticleFields({}, { partial: true })).toThrow(
-      expect.objectContaining({ status: 400 })
-    );
-    expect(() => validateArticleFields({ votes: 100 }, { partial: true }))
-      .toThrow(expect.objectContaining({ status: 400 }));
+    expectBadRequest(() => validateArticleFields({}, { partial: true }));
+    expectBadRequest(() => validateArticleFields({ votes: 100 }, { partial: true }));
   });
 });
