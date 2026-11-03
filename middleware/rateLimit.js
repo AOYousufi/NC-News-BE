@@ -1,5 +1,6 @@
 const buckets = new Map();
 let operations = 0;
+let nextLimiterId = 0;
 
 function pruneExpiredBuckets(now = Date.now()) {
   for (const [key, bucket] of buckets.entries()) {
@@ -13,6 +14,9 @@ function createRateLimiter({
   message = "Too many requests. Please try again later.",
   skip,
 } = {}) {
+  // Each middleware has its own quota, even when mounted at the same path.
+  const limiterId = ++nextLimiterId;
+
   return function rateLimiter(req, res, next) {
     if (skip?.(req)) return next();
 
@@ -26,7 +30,7 @@ function createRateLimiter({
     const key = req.ip || req.socket?.remoteAddress || "unknown";
     // Share a quota across all routes under the same mounted limiter.
     // Otherwise, changing an article or comment ID bypasses the write limit.
-    const bucketKey = key + ":" + (req.baseUrl || "/");
+    const bucketKey = limiterId + ":" + key + ":" + (req.baseUrl || "/");
     const existing = buckets.get(bucketKey);
 
     if (!existing || now >= existing.resetAt) {
