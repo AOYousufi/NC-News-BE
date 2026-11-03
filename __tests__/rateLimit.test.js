@@ -68,4 +68,27 @@ describe("rate limiting", () => {
     await request(app).post("/api/users/register").expect(204);
     await request(app).post("/api/users/login").expect(429);
   });
+
+  test("keeps separate middleware quotas independent on the same mount", async () => {
+    const app = express();
+    const first = createRateLimiter({
+      windowMs: 60_000,
+      max: 1,
+      skip: (req) => req.path !== "/first",
+    });
+    const second = createRateLimiter({
+      windowMs: 60_000,
+      max: 1,
+      skip: (req) => req.path !== "/second",
+    });
+
+    app.use("/api", first, second);
+    app.get("/api/first", (req, res) => res.sendStatus(204));
+    app.get("/api/second", (req, res) => res.sendStatus(204));
+
+    await request(app).get("/api/first").expect(204);
+    await request(app).get("/api/second").expect(204);
+    await request(app).get("/api/first").expect(429);
+    await request(app).get("/api/second").expect(429);
+  });
 });
