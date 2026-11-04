@@ -5,7 +5,9 @@ function extractMentions(body) {
   if (typeof body !== "string") return [];
 
   const usernames = new Set();
-  const regex = /(^|\s)@([A-Za-z0-9_-]{3,30})\b/g;
+  // Match mentions after whitespace or punctuation, but not inside emails or @@names.
+  // A lookahead prevents shortening usernames ending in hyphens or over 30 chars.
+  const regex = /(^|[^A-Za-z0-9_@])@([A-Za-z0-9_-]{3,30})(?![A-Za-z0-9_-])/g;
   let match;
 
   while ((match = regex.exec(body)) !== null) {
