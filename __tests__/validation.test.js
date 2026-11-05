@@ -94,6 +94,27 @@ describe("article payload validation", () => {
   });
 
   test.each([
+    "https://images.example.com/photo.jpg",
+    "http://localhost:3000/uploads/photo.png",
+  ])("accepts valid HTTP(S) article image URLs: %s", (url) => {
+    expect(validateArticleFields({ article_img_url: `  ${url}  ` }, { partial: true }))
+      .toEqual({ article_img_url: url });
+  });
+
+  test.each([
+    "photo.jpg",
+    "//images.example.com/photo.jpg",
+    "javascript:alert(1)",
+    "data:image/png;base64,AAAA",
+    "ftp://example.com/photo.jpg",
+    "https://",
+    "   ",
+    42,
+  ])("rejects unsafe or malformed article image URLs: %s", (url) => {
+    expectBadRequest(() => validateArticleFields({ article_img_url: url }, { partial: true }));
+  });
+
+  test.each([
     [{}],
     [{ ...valid, title: "   " }],
     [{ ...valid, body: " " }],
