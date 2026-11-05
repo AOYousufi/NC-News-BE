@@ -46,7 +46,17 @@ function validateArticleFields(input, { partial = false } = {}) {
     if (input.article_img_url === null || input.article_img_url === "") {
       result.article_img_url = null;
     } else {
-      result.article_img_url = cleanText(input.article_img_url, "article_img_url");
+      const imageUrl = cleanText(input.article_img_url, "article_img_url");
+      let parsedUrl;
+
+      try {
+        parsedUrl = new URL(imageUrl);
+      } catch {
+        throw badRequest();
+      }
+
+      if (!["http:", "https:"].includes(parsedUrl.protocol)) throw badRequest();
+      result.article_img_url = imageUrl;
     }
   }
 
