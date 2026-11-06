@@ -96,6 +96,7 @@ describe("article payload validation", () => {
   test.each([
     "https://images.example.com/photo.jpg",
     "http://localhost:3000/uploads/photo.png",
+    "https://images.example.com/photo%20one.jpg",
   ])("accepts valid HTTP(S) article image URLs: %s", (url) => {
     expect(validateArticleFields({ article_img_url: `  ${url}  ` }, { partial: true }))
       .toEqual({ article_img_url: url });
@@ -107,6 +108,10 @@ describe("article payload validation", () => {
     "javascript:alert(1)",
     "data:image/png;base64,AAAA",
     "ftp://example.com/photo.jpg",
+    "https://user@images.example.com/photo.jpg",
+    "https://user:secret@images.example.com/photo.jpg",
+    "https://images.exa\nmple.com/photo.jpg",
+    "https://images.example.com/\tphoto.jpg",
     "https://",
     "   ",
     42,
