@@ -55,7 +55,12 @@ function validateArticleFields(input, { partial = false } = {}) {
         throw badRequest();
       }
 
-      if (!["http:", "https:"].includes(parsedUrl.protocol)) throw badRequest();
+      if (
+        !["http:", "https:"].includes(parsedUrl.protocol) ||
+        parsedUrl.username ||
+        parsedUrl.password ||
+        /\s/.test(imageUrl)
+      ) throw badRequest();
       result.article_img_url = imageUrl;
     }
   }
