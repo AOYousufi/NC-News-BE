@@ -59,7 +59,15 @@ function verifyToken(token) {
   }
 
   const now = Math.floor(Date.now() / 1000);
-  if (!payload.sub || !payload.exp || payload.exp <= now) {
+  if (
+    typeof payload.sub !== "string" ||
+    !payload.sub.trim() ||
+    !Number.isSafeInteger(payload.iat) ||
+    !Number.isSafeInteger(payload.exp) ||
+    payload.iat > now ||
+    payload.exp <= now ||
+    payload.exp <= payload.iat
+  ) {
     throw new Error("Invalid or expired token");
   }
 
