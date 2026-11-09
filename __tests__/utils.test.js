@@ -19,6 +19,21 @@ describe("convertTimestampToDate", () => {
     expect(result.created_at).toBeDate();
     expect(result.created_at).toEqual(new Date(timestamp));
   });
+  test("preserves the Unix epoch as a valid date", () => {
+    const input = { created_at: 0, title: "First article" };
+    const result = convertTimestampToDate(input);
+
+    expect(result.created_at).toEqual(new Date(0));
+    expect(result.title).toBe("First article");
+    expect(input.created_at).toBe(0);
+  });
+  test("omits a missing or null timestamp", () => {
+    expect(convertTimestampToDate({ title: "No date" })).toEqual({
+      title: "No date",
+    });
+    expect(convertTimestampToDate({ created_at: null, title: "No date" }))
+      .toEqual({ title: "No date" });
+  });
   test("does not mutate the input", () => {
     const timestamp = 1557572706232;
     const input = { created_at: timestamp };
