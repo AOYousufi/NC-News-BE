@@ -26,7 +26,9 @@ function validateDate(value, field) {
     throw badRequest("Invalid " + field + " value");
   }
   const date = new Date(value + "T00:00:00.000Z");
-  if (Number.isNaN(date.getTime())) {
+  // Date.parse normalises impossible dates (for example February 30).
+  // Round-trip the calendar date so these values fail validation instead.
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
     throw badRequest("Invalid " + field + " value");
   }
   return value;
