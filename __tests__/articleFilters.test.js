@@ -33,4 +33,22 @@ describe("article filter validation", () => {
     expect(db.query.mock.calls[0][1]).toEqual(["2024-02-29"]);
     expect(db.query.mock.calls[1][1]).toEqual(["2024-02-29"]);
   });
+
+  test.each([
+    ["discount_20%", String.raw`%discount\_20\%%`],
+    [String.raw`path\file`, String.raw`%path\\file%`],
+  ])("escapes special characters in a literal search term: %s", async (search, expected) => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ total_count: 1 }] })
+      .mockResolvedValueOnce({ rows: [{ article_id: 7 }] });
+
+    const response = await fetchAllArticles({ search });
+
+    expect(response.articles).toEqual([{ article_id: 7 }]);
+    expect(db.query).toHaveBeenCalledTimes(2);
+    expect(db.query.mock.calls[0][1]).toEqual([expected]);
+    expect(db.query.mock.calls[1][1]).toEqual([expected]);
+    expect(db.query.mock.calls[0][0]).toContain("ILIKE $1");
+  });
+
 });

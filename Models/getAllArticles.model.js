@@ -96,7 +96,10 @@ async function fetchAllArticles(options = {}) {
     where.push("articles.author = $" + filterValues.length);
   }
   if (search) {
-    filterValues.push("%" + search + "%");
+    // Escape the PostgreSQL ILIKE wildcards in user-entered text.
+    // The outer % signs intentionally allow a substring search.
+    const literalSearch = search.replace(/[\\%_]/g, "\\$&");
+    filterValues.push("%" + literalSearch + "%");
     const searchParam = "$" + filterValues.length;
     where.push(
       `(articles.title ILIKE ${searchParam} OR articles.body ILIKE ${searchParam} OR articles.author ILIKE ${searchParam})`
