@@ -58,7 +58,7 @@ async function fetchAllArticles(options = {}) {
   const sortBy = options.sort_by === undefined ? "created_at" : options.sort_by;
   const orderInput = options.order === undefined ? "desc" : options.order;
 
-  if (typeof sortBy !== "string" || !SORT_COLUMNS[sortBy]) {
+  if (typeof sortBy !== "string" || !Object.hasOwn(SORT_COLUMNS, sortBy)) {
     throw { status: 400, msg: "Invalid sort_by column" };
   }
   if (typeof orderInput !== "string") {
@@ -80,6 +80,15 @@ async function fetchAllArticles(options = {}) {
   }
   const requestedLimit = parsePositiveIntegerQuery(options.limit, "limit", 100);
   const requestedPage = parsePositiveIntegerQuery(options.p, "page");
+
+  // Multiplying a valid page by a valid limit can overflow JS safe integers.
+  // Reject that offset rather than sending a rounded value to PostgreSQL.
+  if (
+    requestedPage !== undefined &&
+    !Number.isSafeInteger((requestedPage - 1) * (requestedLimit ?? 10))
+  ) {
+    throw badRequest("Invalid page value");
+  }
 
   if (topic) await ensureFilterExists("topics", "slug", topic);
   if (author) await ensureFilterExists("users", "username", author);

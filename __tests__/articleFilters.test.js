@@ -51,4 +51,57 @@ describe("article filter validation", () => {
     expect(db.query.mock.calls[0][0]).toContain("ILIKE $1");
   });
 
+
+  test.each(["constructor", "toString", "valueOf", "__proto__"])(
+    "rejects inherited object names as sort keys: %s",
+    async (sort_by) => {
+      await expect(fetchAllArticles({ sort_by })).rejects.toMatchObject({
+        status: 400,
+        msg: "Invalid sort_by column",
+      });
+      expect(db.query).not.toHaveBeenCalled();
+    }
+  );
+
+  test("still accepts explicitly supported sort keys", async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ total_count: 0 }] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await fetchAllArticles({ sort_by: "votes", order: "asc" });
+
+    expect(db.query).toHaveBeenCalledTimes(2);
+    expect(db.query.mock.calls[1][0]).toContain("ORDER BY articles.votes ASC");
+  });
+
+
+  test.each([
+    { p: String(Number.MAX_SAFE_INTEGER) },
+    { p: String(Number.MAX_SAFE_INTEGER), limit: "100" },
+    { p: "90071992547411", limit: "100" },
+  ])("rejects pagination that would calculate an unsafe SQL offset: %p", async (options) => {
+    await expect(fetchAllArticles(options)).rejects.toMatchObject({
+      status: 400,
+      msg: "Invalid page value",
+    });
+    expect(db.query).not.toHaveBeenCalled();
+  });
+
+  test("accepts a small, safe pagination offset", async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ total_count: 25 }] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    const result = await fetchAllArticles({ p: "2", limit: "10" });
+
+    expect(result.pagination).toMatchObject({
+      page: 2,
+      limit: 10,
+      total_count: 25,
+      has_previous: true,
+      has_next: true,
+    });
+    expect(db.query.mock.calls[1][1].slice(-2)).toEqual([10, 10]);
+  });
+
 });
