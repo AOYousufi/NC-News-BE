@@ -51,4 +51,27 @@ describe("article filter validation", () => {
     expect(db.query.mock.calls[0][0]).toContain("ILIKE $1");
   });
 
+
+  test.each(["constructor", "toString", "valueOf", "__proto__"])(
+    "rejects inherited object names as sort keys: %s",
+    async (sort_by) => {
+      await expect(fetchAllArticles({ sort_by })).rejects.toMatchObject({
+        status: 400,
+        msg: "Invalid sort_by column",
+      });
+      expect(db.query).not.toHaveBeenCalled();
+    }
+  );
+
+  test("still accepts explicitly supported sort keys", async () => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ total_count: 0 }] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await fetchAllArticles({ sort_by: "votes", order: "asc" });
+
+    expect(db.query).toHaveBeenCalledTimes(2);
+    expect(db.query.mock.calls[1][0]).toContain("ORDER BY articles.votes ASC");
+  });
+
 });

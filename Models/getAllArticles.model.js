@@ -58,7 +58,7 @@ async function fetchAllArticles(options = {}) {
   const sortBy = options.sort_by === undefined ? "created_at" : options.sort_by;
   const orderInput = options.order === undefined ? "desc" : options.order;
 
-  if (typeof sortBy !== "string" || !SORT_COLUMNS[sortBy]) {
+  if (typeof sortBy !== "string" || !Object.hasOwn(SORT_COLUMNS, sortBy)) {
     throw { status: 400, msg: "Invalid sort_by column" };
   }
   if (typeof orderInput !== "string") {
