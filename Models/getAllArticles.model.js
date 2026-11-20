@@ -144,7 +144,12 @@ async function fetchAllArticles(options = {}) {
 
   query += " WHERE " + where.join(" AND ");
   query += " GROUP BY articles.article_id";
+  // Stable tie-breaking prevents rows with equal sort values from shifting
+  // between pages. article_id is unique, so it needs no secondary key.
   query += " ORDER BY " + SORT_COLUMNS[sortBy] + " " + order.toUpperCase();
+  if (sortBy !== "article_id") {
+    query += ", articles.article_id " + order.toUpperCase();
+  }
 
   if (limit) {
     values.push(limit);

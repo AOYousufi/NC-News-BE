@@ -104,4 +104,22 @@ describe("article filter validation", () => {
     expect(db.query.mock.calls[1][1].slice(-2)).toEqual([10, 10]);
   });
 
+
+  test.each([
+    ["created_at", "desc", "ORDER BY articles.created_at DESC, articles.article_id DESC"],
+    ["votes", "asc", "ORDER BY articles.votes ASC, articles.article_id ASC"],
+    ["comment_count", "desc", "ORDER BY comment_count DESC, articles.article_id DESC"],
+    ["article_id", "asc", "ORDER BY articles.article_id ASC LIMIT"],
+  ])("uses stable article ordering for %s %s", async (sort_by, order, expected) => {
+    db.query
+      .mockResolvedValueOnce({ rows: [{ total_count: 20 }] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    await fetchAllArticles({ sort_by, order, limit: "5", p: "2" });
+
+    const sql = db.query.mock.calls[1][0];
+    expect(sql).toContain(expected);
+    expect(db.query.mock.calls[1][1].slice(-2)).toEqual([5, 5]);
+  });
+
 });
