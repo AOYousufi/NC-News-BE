@@ -19,7 +19,8 @@ function requestLogger(req, res, next) {
         event: "http_request",
         request_id: requestId,
         method: req.method,
-        path: req.originalUrl,
+        // Never log query strings: they can contain tokens or personal data.
+        path: req.path,
         status: res.statusCode,
         duration_ms: Number(durationMs.toFixed(1)),
         timestamp: new Date().toISOString(),
