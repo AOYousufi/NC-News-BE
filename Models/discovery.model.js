@@ -26,7 +26,7 @@ async function getTrendingArticles({ limit } = {}) {
        ON c.article_id = a.article_id AND c.deleted_at IS NULL
      WHERE a.status = 'published' AND a.deleted_at IS NULL
      GROUP BY a.article_id
-     ORDER BY hot_score DESC, a.created_at DESC
+     ORDER BY hot_score DESC, a.created_at DESC, a.article_id DESC
      LIMIT $1;`,
     [parsedLimit]
   );
@@ -65,7 +65,7 @@ async function getArticleRecommendations(articleIdInput, { limit } = {}) {
        AND a.status = 'published'
        AND a.deleted_at IS NULL
      GROUP BY a.article_id
-     ORDER BY recommendation_score DESC, a.created_at DESC
+     ORDER BY recommendation_score DESC, a.created_at DESC, a.article_id DESC
      LIMIT $4;`,
     [articleId, topic, author, parsedLimit]
   );
