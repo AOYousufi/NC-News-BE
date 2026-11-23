@@ -25,7 +25,7 @@ async function selectCommentsByArticle_ID(articleIdInput) {
             created_at, updated_at, parent_comment_id, deleted_at
      FROM comments
      WHERE article_id = $1
-     ORDER BY created_at DESC;`,
+     ORDER BY created_at DESC, comment_id DESC;`,
     [articleId]
   );
 
