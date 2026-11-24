@@ -212,7 +212,7 @@ async function getManagedArticle(username, articleIdInput) {
   const { rows } = await db.query(
     `SELECT a.*, COUNT(c.comment_id)::int AS comment_count
      FROM articles a
-     LEFT JOIN comments c ON c.article_id = a.article_id
+     LEFT JOIN comments c ON c.article_id = a.article_id AND c.deleted_at IS NULL
      WHERE a.article_id = $1 AND a.author = $2 AND a.deleted_at IS NULL
      GROUP BY a.article_id;`,
     [articleId, username]
