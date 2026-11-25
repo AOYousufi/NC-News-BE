@@ -179,7 +179,7 @@ async function getActivity(username) {
               a.title AS label, sa.saved_at AS occurred_at, a.author AS secondary
        FROM saved_articles sa
        JOIN articles a ON a.article_id = sa.article_id
-       WHERE sa.username = $1 AND a.deleted_at IS NULL
+       WHERE sa.username = $1 AND a.status = 'published' AND a.deleted_at IS NULL
        UNION ALL
        SELECT 'follow' AS type, 0 AS resource_id,
               followed_username AS label, created_at AS occurred_at,
