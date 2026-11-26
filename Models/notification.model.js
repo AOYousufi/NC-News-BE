@@ -45,7 +45,7 @@ async function getNotifications(username, { unreadOnly = false } = {}) {
      JOIN users u ON u.username = n.actor_username
      LEFT JOIN articles a ON a.article_id = n.article_id
      WHERE ${where}
-     ORDER BY n.created_at DESC
+     ORDER BY n.created_at DESC, n.notification_id DESC
      LIMIT 100;`,
     values
   );
