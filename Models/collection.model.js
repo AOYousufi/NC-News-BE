@@ -59,7 +59,7 @@ async function listCollections(username) {
       AND a.deleted_at IS NULL
      WHERE c.username = $1
      GROUP BY c.collection_id
-     ORDER BY c.updated_at DESC, c.created_at DESC;`,
+     ORDER BY c.updated_at DESC, c.created_at DESC, c.collection_id DESC;`,
     [username]
   );
   return rows;
@@ -123,7 +123,7 @@ async function getCollection(username, collectionIdInput) {
        AND a.status = 'published'
        AND a.deleted_at IS NULL
      GROUP BY a.article_id, ca.added_at
-     ORDER BY ca.added_at DESC;`,
+     ORDER BY ca.added_at DESC, a.article_id DESC;`,
     [collection.collection_id]
   );
 
