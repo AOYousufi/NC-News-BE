@@ -1,5 +1,5 @@
 const db = require("../db/connection");
-const { parsePositiveId } = require("../utils/validation");
+const { parsePositiveId, parsePositiveIntegerQuery, badRequest } = require("../utils/validation");
 const { createNotification } = require("./notification.model");
 
 
@@ -114,8 +114,10 @@ async function getFollowStatus(follower, followed) {
 }
 
 async function getFollowingFeed(username, { limit = 20, page = 1 } = {}) {
-  const parsedLimit = Math.min(Math.max(Number(limit) || 20, 1), 50);
-  const parsedPage = Math.max(Number(page) || 1, 1);
+  const parsedLimit = Math.min(parsePositiveIntegerQuery(limit, "limit"), 50);
+  const parsedPage = parsePositiveIntegerQuery(page, "page");
+  const offset = (parsedPage - 1) * parsedLimit;
+  if (!Number.isSafeInteger(offset)) throw badRequest("Invalid page value");
 
   const { rows } = await db.query(
     `SELECT a.author, a.title, a.article_id, a.topic, a.created_at, a.updated_at,
@@ -140,7 +142,7 @@ async function getFollowingFeed(username, { limit = 20, page = 1 } = {}) {
      GROUP BY a.article_id
      ORDER BY a.created_at DESC
      LIMIT $2 OFFSET $3;`,
-    [username, parsedLimit, (parsedPage - 1) * parsedLimit]
+    [username, parsedLimit, offset]
   );
 
   return rows;
